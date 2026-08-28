@@ -25,7 +25,7 @@ services:
     container_name: caffisense-ml
     restart: unless-stopped
     ports:
-      - "8001:8001"
+      - "8002:8001"
     networks:
       - caffisense-net
 
