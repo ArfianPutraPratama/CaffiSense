@@ -8,7 +8,8 @@ import {
   Coffee, Moon, Zap, HeartPulse, ArrowRight,
   Calendar, ChevronRight, ChevronLeft, ChevronDown, X, Eye, Activity,
   ShieldAlert, ShieldCheck, TrendingUp,
-  ArrowDownRight, ArrowUpRight, Search, Plus
+  ArrowDownRight, ArrowUpRight, Search, Plus,
+  Award, CheckCircle2, AlertTriangle, Sparkles, Clock, Droplets, ThumbsUp
 } from 'lucide-react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { getAllAssessmentsApi } from '../services/api';
@@ -22,6 +23,11 @@ export default function HistoryPage() {
   const [filterImpact, setFilterImpact] = useState<'all' | 'low' | 'high'>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'highest_caffeine' | 'lowest_sleep'>('newest');
   
+  // View Mode: 'daily' vs 'weekly'
+  const [viewMode, setViewMode] = useState<'daily' | 'weekly'>('daily');
+  const [selectedWeekOffset, setSelectedWeekOffset] = useState<number>(0);
+  const [selectedDayFilter, setSelectedDayFilter] = useState<number | null>(null); // null = all days, 0-6 = specific day of week
+
   // Pagination State (10 items per page)
   const ITEMS_PER_PAGE = 10;
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -29,7 +35,7 @@ export default function HistoryPage() {
   // Reset to page 1 when search or filter criteria change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterImpact, sortOrder]);
+  }, [searchQuery, filterImpact, sortOrder, viewMode, selectedWeekOffset, selectedDayFilter]);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -120,9 +126,276 @@ export default function HistoryPage() {
     });
   }, [history]);
 
-  // Filtered & Sorted History based on user search query & chips
+  // ─── WEEKLY METRICS & TRACK RECORD CALCULATION ───
+  const weeklyMetrics = useMemo(() => {
+    const now = new Date();
+    // Monday is start of week (1), Sunday is end (0)
+    const currentDay = now.getDay();
+    const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + distanceToMonday + (selectedWeekOffset * 7));
+    monday.setHours(0, 0, 0, 0);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+
+    const formatShortDate = (d: Date) => {
+      return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+    };
+
+    const isCurrentWeek = selectedWeekOffset === 0;
+    const weekLabel = isCurrentWeek
+      ? `Minggu Ini (${formatShortDate(monday)} – ${formatShortDate(sunday)} ${sunday.getFullYear()})`
+      : `${formatShortDate(monday)} – ${formatShortDate(sunday)} ${sunday.getFullYear()}`;
+
+    // Filter assessments in this week
+    const weekAssessments = sortedHistory.filter(item => {
+      const itemDate = new Date(item.created_at || item.date || 0);
+      return itemDate >= monday && itemDate <= sunday;
+    });
+
+    const dayNames = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+    const shortDayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+
+    const days = dayNames.map((fullName, idx) => {
+      const targetDate = new Date(monday);
+      targetDate.setDate(monday.getDate() + idx);
+
+      const dayMatches = weekAssessments.filter(item => {
+        const d = new Date(item.created_at || item.date || 0);
+        return d.getFullYear() === targetDate.getFullYear() &&
+               d.getMonth() === targetDate.getMonth() &&
+               d.getDate() === targetDate.getDate();
+      });
+
+      if (dayMatches.length === 0) {
+        return {
+          dayIndex: idx,
+          dayName: shortDayNames[idx],
+          fullDayName: fullName,
+          dateNumber: targetDate.getDate(),
+          targetDate,
+          status: 'empty' as const,
+          statusLabel: 'Belum Ada Catatan',
+          totalCaffeine: 0,
+          cups: 0,
+          lastCoffeeTime: null as string | null,
+          sleepHours: null as number | null,
+          mealStatus: null as string | null,
+          assessmentCount: 0,
+          issues: [] as string[],
+          positives: [] as string[],
+        };
+      }
+
+      let totalCaffeine = 0;
+      let totalCups = 0;
+      let latestTime = '';
+      let sleepHours: number | null = null;
+      let hadEmptyStomach = false;
+      let hadHighImpact = false;
+      const dayIssues: string[] = [];
+      const dayPositives: string[] = [];
+
+      dayMatches.forEach(item => {
+        const mg = Math.round(item.estimated_caffeine_mg || 0);
+        totalCaffeine += mg;
+        totalCups += (item.coffee_cups_per_day || 1);
+        if (item.last_coffee_time) latestTime = item.last_coffee_time;
+        if (item.sleep_duration) sleepHours = Number(item.sleep_duration);
+        if (item.meal_status === 'belum_makan') hadEmptyStomach = true;
+        if (item.ml_prediction === 1 || item.sleep_impact === 'High') hadHighImpact = true;
+      });
+
+      let penalty = 0;
+      if (totalCaffeine > 350) {
+        dayIssues.push(`Kafein tinggi (${totalCaffeine} mg)`);
+        penalty += 1;
+      }
+      if (latestTime) {
+        const [h] = latestTime.split(':').map(Number);
+        if (h >= 17) {
+          dayIssues.push(`Ngopi larut malam (${latestTime})`);
+          penalty += 2;
+        } else if (h >= 15) {
+          dayIssues.push(`Ngopi sore hari (${latestTime})`);
+          penalty += 1;
+        } else {
+          dayPositives.push(`Cut-off pagi/siang disiplin (${latestTime})`);
+        }
+      }
+      if (hadEmptyStomach) {
+        dayIssues.push('Minum kopi saat perut kosong');
+        penalty += 1;
+      } else {
+        dayPositives.push('Lambung aman (sudah makan)');
+      }
+      if (sleepHours !== null) {
+        if (sleepHours < 6) {
+          dayIssues.push(`Tidur kurang (${sleepHours} jam)`);
+          penalty += 1;
+        } else if (sleepHours >= 7) {
+          dayPositives.push(`Tidur cukup (${sleepHours} jam)`);
+        }
+      }
+      if (hadHighImpact) {
+        penalty += 1;
+      }
+
+      let status: 'good' | 'moderate' | 'poor' = 'good';
+      let statusLabel = 'Bagus & Sehat';
+      if (penalty >= 2) {
+        status = 'poor';
+        statusLabel = 'Perlu Perhatian';
+      } else if (penalty === 1) {
+        status = 'moderate';
+        statusLabel = 'Cukup / Waspada';
+      }
+
+      return {
+        dayIndex: idx,
+        dayName: shortDayNames[idx],
+        fullDayName: fullName,
+        dateNumber: targetDate.getDate(),
+        targetDate,
+        status,
+        statusLabel,
+        totalCaffeine,
+        cups: totalCups,
+        lastCoffeeTime: latestTime || null,
+        sleepHours,
+        mealStatus: hadEmptyStomach ? 'belum_makan' : 'sudah_makan',
+        assessmentCount: dayMatches.length,
+        issues: dayIssues,
+        positives: dayPositives,
+      };
+    });
+
+    const recordedDays = days.filter(d => d.status !== 'empty');
+    const goodDays = recordedDays.filter(d => d.status === 'good');
+    const moderateDays = recordedDays.filter(d => d.status === 'moderate');
+    const poorDays = recordedDays.filter(d => d.status === 'poor');
+
+    let totalCaffeineWeek = 0;
+    let totalSleepWeek = 0;
+    let sleepDaysCount = 0;
+
+    recordedDays.forEach(d => {
+      totalCaffeineWeek += d.totalCaffeine;
+      if (d.sleepHours !== null) {
+        totalSleepWeek += d.sleepHours;
+        sleepDaysCount++;
+      }
+    });
+
+    const avgCaffeine = recordedDays.length > 0 ? Math.round(totalCaffeineWeek / recordedDays.length) : 0;
+    const avgSleep = sleepDaysCount > 0 ? (totalSleepWeek / sleepDaysCount).toFixed(1) : '-';
+
+    let score = 100;
+    if (recordedDays.length === 0) {
+      score = 0;
+    } else {
+      score = Math.max(30, Math.min(100, Math.round(100 - (poorDays.length * 20) - (moderateDays.length * 8))));
+    }
+
+    let scoreCategory = 'Sangat Baik';
+    let scoreColor = 'emerald';
+    if (score >= 80) {
+      scoreCategory = 'Disiplin Sangat Baik';
+      scoreColor = 'emerald';
+    } else if (score >= 60) {
+      scoreCategory = 'Cukup Stabil';
+      scoreColor = 'amber';
+    } else {
+      scoreCategory = 'Perlu Evaluasi & Istirahat';
+      scoreColor = 'rose';
+    }
+
+    // Dynamic positive bullet points
+    const goodPoints: string[] = [];
+    if (goodDays.length > 0) {
+      goodPoints.push(`${goodDays.length} dari ${recordedDays.length} hari tercatat memiliki ritme konsumsi dan tidur sangat prima.`);
+    }
+    const emptyStomachCount = recordedDays.filter(d => d.mealStatus === 'belum_makan').length;
+    if (emptyStomachCount === 0 && recordedDays.length > 0) {
+      goodPoints.push('100% selalu makan sebelum ngopi, melindungi mukosa lambung dari iritasi asam klorida (HCl).');
+    }
+    if (avgCaffeine > 0 && avgCaffeine <= 250) {
+      goodPoints.push(`Rata-rata kafein harian (${avgCaffeine} mg) berada di zona aman, jauh di bawah batas toleransi FDA 400 mg.`);
+    }
+    const earlyCutoffCount = recordedDays.filter(d => d.lastCoffeeTime && Number(d.lastCoffeeTime.split(':')[0]) < 15).length;
+    if (earlyCutoffCount > 0) {
+      goodPoints.push(`${earlyCutoffCount} hari berhasil mematuhi cut-off time sebelum jam 15:00 untuk mencegah insomnia.`);
+    }
+    if (avgSleep !== '-' && Number(avgSleep) >= 7) {
+      goodPoints.push(`Rata-rata durasi tidur mencapai ${avgSleep} jam/malam, mendukung pemulihan adenosin dan regenerasi seluler.`);
+    }
+    if (goodPoints.length === 0) {
+      goodPoints.push('Mulai membiasakan pencatatan harian secara konsisten untuk membangun ritme sirkadian sehat.');
+    }
+
+    // Dynamic improvement points
+    const improvementPoints: string[] = [];
+    if (poorDays.length > 0) {
+      improvementPoints.push(`Terdapat ${poorDays.length} hari dengan beban metabolisme tinggi yang berisiko mengganggu fase deep sleep.`);
+    }
+    const lateCoffeeDays = recordedDays.filter(d => d.lastCoffeeTime && Number(d.lastCoffeeTime.split(':')[0]) >= 16);
+    if (lateCoffeeDays.length > 0) {
+      improvementPoints.push(`Ditemukan sesi ngopi sore/malam (${lateCoffeeDays.map(d => `${d.dayName} ${d.lastCoffeeTime}`).join(', ')}). Waktu paruh kafein 5 jam akan menunda kantuk.`);
+    }
+    if (emptyStomachCount > 0) {
+      improvementPoints.push(`Tercatat ${emptyStomachCount} hari ngopi saat perut kosong. Disarankan mengisi perut dengan makanan ringan terlebih dahulu.`);
+    }
+    const shortSleepDays = recordedDays.filter(d => d.sleepHours !== null && d.sleepHours < 6);
+    if (shortSleepDays.length > 0) {
+      improvementPoints.push(`Durasi tidur kurang dari 6 jam pada ${shortSleepDays.length} hari, mengurangi efisiensi restorasi sirkadian.`);
+    }
+    if (improvementPoints.length === 0) {
+      improvementPoints.push('Pola kebiasaan sudah sangat bagus! Pertahankan ritme ini untuk menjaga stamina dan kualitas tidur optimal.');
+    }
+
+    return {
+      monday,
+      sunday,
+      weekLabel,
+      isCurrentWeek,
+      weekAssessments,
+      days,
+      recordedDaysCount: recordedDays.length,
+      goodDaysCount: goodDays.length,
+      moderateDaysCount: moderateDays.length,
+      poorDaysCount: poorDays.length,
+      avgCaffeine,
+      avgSleep,
+      score,
+      scoreCategory,
+      scoreColor,
+      goodPoints,
+      improvementPoints,
+    };
+  }, [sortedHistory, selectedWeekOffset]);
+
+  // Filtered & Sorted History based on viewMode, user search query & chips
   const filteredHistory = useMemo(() => {
     let list = [...sortedHistory];
+
+    // If Weekly mode, filter by this week's assessments
+    if (viewMode === 'weekly' && weeklyMetrics) {
+      list = [...weeklyMetrics.weekAssessments];
+
+      // If user clicked a specific day in the 7-day bar
+      if (selectedDayFilter !== null && weeklyMetrics.days[selectedDayFilter]) {
+        const targetDay = weeklyMetrics.days[selectedDayFilter];
+        list = list.filter(item => {
+          const d = new Date(item.created_at || item.date || 0);
+          return d.getFullYear() === targetDay.targetDate.getFullYear() &&
+                 d.getMonth() === targetDay.targetDate.getMonth() &&
+                 d.getDate() === targetDay.targetDate.getDate();
+        });
+      }
+    }
 
     // 1. Filter Impact
     if (filterImpact === 'low') {
@@ -164,7 +437,7 @@ export default function HistoryPage() {
     }
 
     return list;
-  }, [sortedHistory, filterImpact, searchQuery, sortOrder]);
+  }, [sortedHistory, viewMode, weeklyMetrics, selectedDayFilter, filterImpact, searchQuery, sortOrder]);
 
   // Paginated List Calculation (Max 10 per page)
   const totalPages = Math.ceil(filteredHistory.length / ITEMS_PER_PAGE) || 1;
@@ -316,8 +589,417 @@ export default function HistoryPage() {
           </div>
         </div>
 
-        {/* ─── OVERALL ANALYTICS & TIMELINE TREND CONTAINER ─── */}
-        {overviewStats && overviewStats.totalSessions > 0 && (
+        {/* ─── VIEW MODE SWITCHER (HARIAN vs MINGGUAN) ─── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-gray-200/80 shadow-xs">
+          <div className="flex items-center gap-1.5 p-1 bg-gray-100/80 rounded-xl border border-gray-200/60 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => { setViewMode('daily'); setSelectedDayFilter(null); }}
+              className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                viewMode === 'daily'
+                  ? 'bg-white text-gray-900 shadow-xs'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <Calendar className={`w-3.5 h-3.5 ${viewMode === 'daily' ? 'text-amber-600' : 'text-gray-400'}`} />
+              <span>Mode Harian (Semua Sesi)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setViewMode('weekly'); setSelectedDayFilter(null); }}
+              className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                viewMode === 'weekly'
+                  ? 'bg-white text-gray-900 shadow-xs'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <TrendingUp className={`w-3.5 h-3.5 ${viewMode === 'weekly' ? 'text-indigo-600' : 'text-gray-400'}`} />
+              <span>Mode Mingguan (Rapor 7 Hari)</span>
+              {weeklyMetrics && weeklyMetrics.score > 0 && (
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                  weeklyMetrics.score >= 80 ? 'bg-emerald-100 text-emerald-800' :
+                  weeklyMetrics.score >= 60 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
+                }`}>
+                  {weeklyMetrics.score}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Week Selector in Weekly Mode */}
+          {viewMode === 'weekly' && weeklyMetrics && (
+            <div className="flex items-center justify-between sm:justify-end gap-2 px-2 py-1">
+              <button
+                type="button"
+                onClick={() => { setSelectedWeekOffset(prev => prev - 1); setSelectedDayFilter(null); }}
+                className="p-1.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 transition cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                title="Minggu Sebelumnya"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden md:inline">Minggu Lalu</span>
+              </button>
+
+              <span className="text-xs font-bold text-gray-800 px-2.5 py-1 bg-gray-50 rounded-lg border border-gray-200/80">
+                {weeklyMetrics.weekLabel}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => { setSelectedWeekOffset(prev => prev + 1); setSelectedDayFilter(null); }}
+                disabled={selectedWeekOffset >= 0}
+                className={`p-1.5 rounded-lg border border-gray-200 transition cursor-pointer flex items-center gap-1 text-xs font-semibold ${
+                  selectedWeekOffset >= 0
+                    ? 'bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed'
+                    : 'bg-gray-50 hover:bg-gray-100 text-gray-700'
+                }`}
+                title="Minggu Berikutnya"
+              >
+                <span className="hidden md:inline">Minggu Depan</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+
+              {selectedWeekOffset !== 0 && (
+                <button
+                  type="button"
+                  onClick={() => { setSelectedWeekOffset(0); setSelectedDayFilter(null); }}
+                  className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 underline ml-1 cursor-pointer"
+                >
+                  Ke Minggu Ini
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ─── WEEKLY TRACK & REVIEW COMPONENT ─── */}
+        {viewMode === 'weekly' && weeklyMetrics && (
+          <div className="space-y-6">
+            {/* Top Scorecard & Summary Banner */}
+            <div className="bg-white rounded-2xl p-6 sm:p-7 shadow-xs border border-gray-200/80 space-y-6">
+              
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-6 border-b border-gray-100">
+                {/* Score Left Column */}
+                <div className="flex items-center gap-4">
+                  <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex flex-col items-center justify-center border shadow-xs shrink-0 ${
+                    weeklyMetrics.score >= 80
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : weeklyMetrics.score >= 60
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : 'bg-rose-50 text-rose-700 border-rose-200'
+                  }`}>
+                    <span className="text-2xl sm:text-3xl font-extrabold tracking-tight leading-none">
+                      {weeklyMetrics.score}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-80 mt-1">
+                      Skor / 100
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                        weeklyMetrics.score >= 80
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : weeklyMetrics.score >= 60
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-rose-50 text-rose-700 border-rose-200'
+                      }`}>
+                        {weeklyMetrics.scoreCategory}
+                      </span>
+                      <span className="text-xs text-gray-400 font-medium">
+                        • {weeklyMetrics.recordedDaysCount} dari 7 Hari Tercatat
+                      </span>
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-900">
+                      Rapor Disiplin Ritme Kafein Minggu Ini
+                    </h3>
+                    <p className="text-xs sm:text-sm text-gray-500 max-w-xl">
+                      {weeklyMetrics.score >= 80
+                        ? 'Ritme konsumsi kafeinmu sangat teratur dan tidak membebani jam tidur maupun ritme sirkadian tubuh.'
+                        : weeklyMetrics.score >= 60
+                        ? 'Pola konsumsimu cukup baik, namun ada beberapa catatan seperti jam ngopi sore yang perlu diperhatikan.'
+                        : 'Beban kafein dan jam istirahat di minggu ini membutuhkan perbaikan dan reset cut-off time.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Status Badges Counts */}
+                <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-start bg-gray-50 p-2.5 rounded-xl border border-gray-200/60 shrink-0">
+                  <div className="text-center px-3 py-1">
+                    <span className="text-base font-extrabold text-emerald-600 block leading-tight">
+                      {weeklyMetrics.goodDaysCount}
+                    </span>
+                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                      Hari Prima 🟢
+                    </span>
+                  </div>
+                  <div className="w-[1px] h-7 bg-gray-200"></div>
+                  <div className="text-center px-3 py-1">
+                    <span className="text-base font-extrabold text-amber-600 block leading-tight">
+                      {weeklyMetrics.moderateDaysCount}
+                    </span>
+                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                      Cukup 🟡
+                    </span>
+                  </div>
+                  <div className="w-[1px] h-7 bg-gray-200"></div>
+                  <div className="text-center px-3 py-1">
+                    <span className="text-base font-extrabold text-rose-600 block leading-tight">
+                      {weeklyMetrics.poorDaysCount}
+                    </span>
+                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                      Evaluasi 🔴
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4 Weekly Quick Stat Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+                <div className="bg-gray-50/60 p-4 rounded-xl border border-gray-200/70 flex flex-col justify-between">
+                  <span className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-amber-600" />
+                    Rata-rata Kafein
+                  </span>
+                  <div className="mt-2">
+                    <span className="text-xl font-bold text-gray-900">{weeklyMetrics.avgCaffeine}</span>
+                    <span className="text-xs font-medium text-gray-500 ml-1">mg / hari</span>
+                    <span className="text-[11px] text-gray-400 block mt-0.5">
+                      {weeklyMetrics.avgCaffeine <= 200 ? 'Rendah & Sangat Aman' : weeklyMetrics.avgCaffeine <= 350 ? 'Sedang' : 'Tinggi'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50/60 p-4 rounded-xl border border-gray-200/70 flex flex-col justify-between">
+                  <span className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
+                    <Moon className="w-3.5 h-3.5 text-purple-600" />
+                    Rata-rata Tidur
+                  </span>
+                  <div className="mt-2">
+                    <span className="text-xl font-bold text-gray-900">{weeklyMetrics.avgSleep}</span>
+                    <span className="text-xs font-medium text-gray-500 ml-1">Jam / malam</span>
+                    <span className="text-[11px] text-gray-400 block mt-0.5">
+                      {weeklyMetrics.avgSleep !== '-' && Number(weeklyMetrics.avgSleep) >= 7 ? 'Rentang Ideal (7–9 Jam)' : 'Di Bawah Anjuran'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50/60 p-4 rounded-xl border border-gray-200/70 flex flex-col justify-between">
+                  <span className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
+                    <Coffee className="w-3.5 h-3.5 text-orange-600" />
+                    Total Sesi Catatan
+                  </span>
+                  <div className="mt-2">
+                    <span className="text-xl font-bold text-gray-900">{weeklyMetrics.weekAssessments.length}</span>
+                    <span className="text-xs font-medium text-gray-500 ml-1">Sesi Diagnosa</span>
+                    <span className="text-[11px] text-gray-400 block mt-0.5">
+                      {weeklyMetrics.recordedDaysCount} Hari Aktif Minggu Ini
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50/60 p-4 rounded-xl border border-gray-200/70 flex flex-col justify-between">
+                  <span className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    Rasio Hari Prima
+                  </span>
+                  <div className="mt-2">
+                    <span className="text-xl font-bold text-emerald-700">
+                      {weeklyMetrics.recordedDaysCount > 0
+                        ? Math.round((weeklyMetrics.goodDaysCount / weeklyMetrics.recordedDaysCount) * 100)
+                        : 0}%
+                    </span>
+                    <span className="text-xs font-medium text-gray-500 ml-1">Bebas Gangguan</span>
+                    <span className="text-[11px] text-gray-400 block mt-0.5">
+                      Kualitas sirkadian terjaga
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ─── 7-DAY INTERACTIVE VISUAL TRACK (SENIN - MINGGU) ─── */}
+              <div className="space-y-3 pt-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-indigo-600" />
+                      <span>Pelacak 7 Hari (Senin – Minggu)</span>
+                    </h4>
+                    <p className="text-xs text-gray-500">
+                      Klik salah satu hari di bawah untuk menyaring riwayat khusus hari tersebut.
+                    </p>
+                  </div>
+
+                  {selectedDayFilter !== null && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDayFilter(null)}
+                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 px-2.5 py-1 rounded-lg transition cursor-pointer w-fit"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Tampilkan Semua Hari Minggu Ini</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* 7 Day Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+                  {weeklyMetrics.days.map((day) => {
+                    const isSelected = selectedDayFilter === day.dayIndex;
+                    const isGood = day.status === 'good';
+                    const isModerate = day.status === 'moderate';
+                    const isPoor = day.status === 'poor';
+                    const isEmpty = day.status === 'empty';
+
+                    return (
+                      <button
+                        key={day.dayIndex}
+                        type="button"
+                        onClick={() => {
+                          if (isEmpty) return;
+                          setSelectedDayFilter(isSelected ? null : day.dayIndex);
+                        }}
+                        disabled={isEmpty}
+                        className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between min-h-[115px] ${
+                          isEmpty
+                            ? 'bg-gray-50/50 border-gray-200/60 opacity-60 cursor-not-allowed'
+                            : isSelected
+                            ? 'bg-indigo-50/70 border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs cursor-pointer'
+                            : 'bg-white border-gray-200/80 hover:border-gray-300 hover:shadow-xs cursor-pointer'
+                        }`}
+                      >
+                        {/* Day Header */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                            {day.dayName}
+                          </span>
+                          <span className="text-xs font-extrabold text-gray-900">
+                            {day.dateNumber}
+                          </span>
+                        </div>
+
+                        {/* Middle Content */}
+                        <div className="my-2 space-y-1">
+                          {isEmpty ? (
+                            <span className="text-[10px] text-gray-400 font-medium block">
+                              Belum ada data
+                            </span>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-1 text-xs font-bold text-gray-900">
+                                <Coffee className="w-3 h-3 text-amber-600 shrink-0" />
+                                <span>{day.totalCaffeine} mg</span>
+                              </div>
+                              {day.lastCoffeeTime && (
+                                <div className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
+                                  <Clock className="w-2.5 h-2.5 text-gray-400 shrink-0" />
+                                  <span>{day.lastCoffeeTime.slice(0, 5)}</span>
+                                </div>
+                              )}
+                              {day.sleepHours !== null && (
+                                <div className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
+                                  <Moon className="w-2.5 h-2.5 text-purple-400 shrink-0" />
+                                  <span>{day.sleepHours}j tidur</span>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+
+                        {/* Status Footer Pill */}
+                        <div>
+                          {isGood && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              Bagus
+                            </span>
+                          )}
+                          {isModerate && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                              Cukup
+                            </span>
+                          )}
+                          {isPoor && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                              Evaluasi
+                            </span>
+                          )}
+                          {isEmpty && (
+                            <span className="text-[9px] font-medium text-gray-400">
+                              -
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ─── DUA KOTAK KOMPARASI: YANG SUDAH BAGUS VS PERLU DITINGKATKAN ─── */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                {/* Positive Achievements (Kelebihan) */}
+                <div className="bg-emerald-50/40 border border-emerald-200/80 rounded-2xl p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-emerald-900">
+                        Yang Sudah Bagus Minggu Ini
+                      </h4>
+                      <p className="text-[11px] text-emerald-700/80">
+                        Pencapaian positif ritme konsumsi kopi dan sirkadianmu.
+                      </p>
+                    </div>
+                  </div>
+
+                  <ul className="space-y-2">
+                    {weeklyMetrics.goodPoints.map((pt, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-emerald-800 leading-relaxed">
+                        <span className="text-emerald-500 font-bold mt-0.5">•</span>
+                        <span>{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Improvement Points (Kekurangan / Perlu Evaluasi) */}
+                <div className="bg-amber-50/40 border border-amber-200/80 rounded-2xl p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-amber-900">
+                        Catatan Evaluasi / Perlu Diperbaiki
+                      </h4>
+                      <p className="text-[11px] text-amber-700/80">
+                        Poin kebiasaan yang berpotensi mengganggu kualitas istirahat.
+                      </p>
+                    </div>
+                  </div>
+
+                  <ul className="space-y-2">
+                    {weeklyMetrics.improvementPoints.map((pt, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-amber-800 leading-relaxed">
+                        <span className="text-amber-500 font-bold mt-0.5">•</span>
+                        <span>{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* ─── OVERALL ANALYTICS & TIMELINE TREND CONTAINER (MODE HARIAN) ─── */}
+        {viewMode === 'daily' && overviewStats && overviewStats.totalSessions > 0 && (
           <div className="bg-white rounded-2xl p-6 sm:p-7 shadow-xs border border-gray-200/80 space-y-6">
             
             {/* Section Header with Date Range */}
@@ -591,7 +1273,18 @@ export default function HistoryPage() {
             {/* Header List & Counter */}
             <div className="flex items-center justify-between px-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                Daftar Catatan ({sortedHistory.length} Total)
+                {viewMode === 'weekly' && weeklyMetrics ? (
+                  <>
+                    Catatan Sesi Minggu Ini ({filteredHistory.length} Sesi)
+                    {selectedDayFilter !== null && weeklyMetrics.days[selectedDayFilter] && (
+                      <span className="text-indigo-600 font-bold ml-1.5 normal-case">
+                        • Hari {weeklyMetrics.days[selectedDayFilter].fullDayName}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>Daftar Catatan ({sortedHistory.length} Total)</>
+                )}
               </span>
               <span className="text-xs text-gray-400 font-medium">
                 {searchQuery || filterImpact !== 'all' ? `Menampilkan ${filteredHistory.length} hasil` : 'Diurutkan dari terbaru'}
@@ -685,17 +1378,41 @@ export default function HistoryPage() {
                 <div className="w-10 h-10 rounded-xl bg-gray-100 text-gray-500 flex items-center justify-center mx-auto">
                   <Search className="w-4 h-4" />
                 </div>
-                <h4 className="text-sm font-bold text-gray-900">Tidak ada riwayat yang cocok</h4>
+                <h4 className="text-sm font-bold text-gray-900">
+                  {searchQuery
+                    ? 'Tidak ada riwayat yang cocok'
+                    : viewMode === 'weekly'
+                    ? 'Belum Ada Catatan di Minggu Ini'
+                    : 'Tidak ada riwayat yang cocok'}
+                </h4>
                 <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                  Tidak ditemukan data untuk pencarian "{searchQuery}".
+                  {searchQuery
+                    ? `Tidak ditemukan data untuk pencarian "${searchQuery}".`
+                    : viewMode === 'weekly'
+                    ? (selectedDayFilter !== null && weeklyMetrics
+                        ? `Belum ada sesi konsumsi kopi yang dicatat pada hari ${weeklyMetrics.days[selectedDayFilter].fullDayName}.`
+                        : 'Belum ada sesi diagnosa yang tercatat pada rentang minggu ini. Mulai input sesi barumu!')
+                    : 'Belum ada data riwayat yang tersimpan.'}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => { setSearchQuery(''); setFilterImpact('all'); }}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-900 bg-gray-100 hover:bg-gray-200 px-3.5 py-1.5 rounded-lg transition cursor-pointer"
-                >
-                  <span>Reset Filter</span>
-                </button>
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  {searchQuery || filterImpact !== 'all' || selectedDayFilter !== null ? (
+                    <button
+                      type="button"
+                      onClick={() => { setSearchQuery(''); setFilterImpact('all'); setSelectedDayFilter(null); }}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-900 bg-gray-100 hover:bg-gray-200 px-3.5 py-1.5 rounded-lg transition cursor-pointer"
+                    >
+                      <span>Reset Filter</span>
+                    </button>
+                  ) : viewMode === 'weekly' ? (
+                    <Link
+                      to="/diagnosis"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-gray-950 hover:bg-black px-4 py-2 rounded-xl transition cursor-pointer shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Input Sesi Baru</span>
+                    </Link>
+                  ) : null}
+                </div>
               </div>
             ) : (
               <>
