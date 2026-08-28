@@ -81,6 +81,24 @@ services:
     networks:
       - caffisense-net
 
+  # ─── 5. PHPMYADMIN (GUI Database CaffiSense) ───
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: caffisense-phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: root
+    ports:
+      - "8089:80"
+    networks:
+      - caffisense-net
+
 networks:
   caffisense-net:
     driver: bridge
