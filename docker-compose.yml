@@ -61,7 +61,7 @@ services:
     volumes:
       - caffisense_storage:/var/www/html/storage/app/public
     ports:
-      - "8000:8000"
+      - "8008:8000"
     networks:
       - caffisense-net
 
