@@ -17,12 +17,12 @@ if [ ! -f /var/www/html/.env ]; then
 fi
 
 # Force correct DB connection and credentials in .env
-sed -i 's/DB_CONNECTION=.*/DB_CONNECTION=mysql/' /var/www/html/.env
-sed -i 's/DB_HOST=.*/DB_HOST=db/' /var/www/html/.env
-sed -i 's/DB_PORT=.*/DB_PORT=3306/' /var/www/html/.env
-sed -i 's/DB_DATABASE=.*/DB_DATABASE=cafficheck/' /var/www/html/.env
-sed -i 's/DB_USERNAME=.*/DB_USERNAME=root/' /var/www/html/.env
-sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=root/' /var/www/html/.env
+sed -i "s/DB_CONNECTION=.*/DB_CONNECTION=${DB_CONNECTION:-mysql}/" /var/www/html/.env
+sed -i "s/DB_HOST=.*/DB_HOST=${DB_HOST:-tugasweb-db}/" /var/www/html/.env
+sed -i "s/DB_PORT=.*/DB_PORT=${DB_PORT:-3306}/" /var/www/html/.env
+sed -i "s/DB_DATABASE=.*/DB_DATABASE=${DB_DATABASE:-cafficheck}/" /var/www/html/.env
+sed -i "s/DB_USERNAME=.*/DB_USERNAME=${DB_USERNAME:-root}/" /var/www/html/.env
+sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=${DB_PASSWORD:-root}/" /var/www/html/.env
 grep -q "DB_COLLATION" /var/www/html/.env && sed -i 's/DB_COLLATION=.*/DB_COLLATION=utf8mb4_unicode_ci/' /var/www/html/.env || echo "DB_COLLATION=utf8mb4_unicode_ci" >> /var/www/html/.env
 grep -q "DB_CHARSET" /var/www/html/.env && sed -i 's/DB_CHARSET=.*/DB_CHARSET=utf8mb4/' /var/www/html/.env || echo "DB_CHARSET=utf8mb4" >> /var/www/html/.env
 
