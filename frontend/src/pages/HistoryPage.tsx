@@ -9,11 +9,29 @@ import {
   Calendar, ChevronRight, ChevronLeft, ChevronDown, X, Eye, Activity,
   ShieldAlert, ShieldCheck, TrendingUp,
   ArrowDownRight, ArrowUpRight, Search, Plus,
-  Award, CheckCircle2, AlertTriangle, Sparkles, Clock, Droplets, ThumbsUp
+  CheckCircle2, AlertTriangle, Clock
 } from 'lucide-react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { getAllAssessmentsApi } from '../services/api';
 import AiAnalysisView from '../components/AiAnalysisView';
+
+export interface DayMetric {
+  dayIndex: number;
+  dayName: string;
+  fullDayName: string;
+  dateNumber: number;
+  targetDate: Date;
+  status: 'good' | 'moderate' | 'poor' | 'empty';
+  statusLabel: string;
+  totalCaffeine: number;
+  cups: number;
+  lastCoffeeTime: string | null;
+  sleepHours: number | null;
+  mealStatus: string | null;
+  assessmentCount: number;
+  issues: string[];
+  positives: string[];
+}
 
 export default function HistoryPage() {
   const navigate = useNavigate();
@@ -159,7 +177,7 @@ export default function HistoryPage() {
     const dayNames = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
     const shortDayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 
-    const days = dayNames.map((fullName, idx) => {
+    const days: DayMetric[] = dayNames.map((fullName, idx): DayMetric => {
       const targetDate = new Date(monday);
       targetDate.setDate(monday.getDate() + idx);
 
@@ -845,7 +863,7 @@ export default function HistoryPage() {
 
                 {/* 7 Day Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
-                  {weeklyMetrics.days.map((day) => {
+                  {weeklyMetrics.days.map((day: DayMetric) => {
                     const isSelected = selectedDayFilter === day.dayIndex;
                     const isGood = day.status === 'good';
                     const isModerate = day.status === 'moderate';
@@ -881,7 +899,7 @@ export default function HistoryPage() {
 
                         {/* Middle Content */}
                         <div className="my-2 space-y-1">
-                          {isEmpty ? (
+                          {day.status === 'empty' ? (
                             <span className="text-[10px] text-gray-400 font-medium block">
                               Belum ada data
                             </span>
@@ -897,7 +915,7 @@ export default function HistoryPage() {
                                   <span>{day.lastCoffeeTime.slice(0, 5)}</span>
                                 </div>
                               )}
-                              {day.sleepHours !== null && (
+                              {day.sleepHours !== null && day.sleepHours !== undefined && (
                                 <div className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
                                   <Moon className="w-2.5 h-2.5 text-purple-400 shrink-0" />
                                   <span>{day.sleepHours}j tidur</span>
