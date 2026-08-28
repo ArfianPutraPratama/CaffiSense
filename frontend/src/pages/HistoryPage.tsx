@@ -608,37 +608,34 @@ export default function HistoryPage() {
         </div>
 
         {/* ─── VIEW MODE SWITCHER (HARIAN vs MINGGUAN) ─── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-gray-200/80 shadow-xs">
-          <div className="flex items-center gap-1.5 p-1 bg-gray-100/80 rounded-xl border border-gray-200/60 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-2 rounded-2xl border border-gray-100 shadow-xs">
+          <div className="flex items-center gap-1 p-1 bg-gray-100/70 rounded-xl w-full sm:w-auto">
             <button
               type="button"
               onClick={() => { setViewMode('daily'); setSelectedDayFilter(null); }}
-              className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 viewMode === 'daily'
                   ? 'bg-white text-gray-900 shadow-xs'
-                  : 'text-gray-500 hover:text-gray-900'
+                  : 'text-gray-500 hover:text-gray-800'
               }`}
             >
-              <Calendar className={`w-3.5 h-3.5 ${viewMode === 'daily' ? 'text-amber-600' : 'text-gray-400'}`} />
-              <span>Mode Harian (Semua Sesi)</span>
+              <Calendar className="w-3.5 h-3.5 text-gray-500" />
+              <span>Mode Harian</span>
             </button>
 
             <button
               type="button"
               onClick={() => { setViewMode('weekly'); setSelectedDayFilter(null); }}
-              className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 viewMode === 'weekly'
                   ? 'bg-white text-gray-900 shadow-xs'
-                  : 'text-gray-500 hover:text-gray-900'
+                  : 'text-gray-500 hover:text-gray-800'
               }`}
             >
-              <TrendingUp className={`w-3.5 h-3.5 ${viewMode === 'weekly' ? 'text-indigo-600' : 'text-gray-400'}`} />
-              <span>Mode Mingguan (Rapor 7 Hari)</span>
+              <TrendingUp className="w-3.5 h-3.5 text-gray-500" />
+              <span>Rapor Mingguan</span>
               {weeklyMetrics && weeklyMetrics.score > 0 && (
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
-                  weeklyMetrics.score >= 80 ? 'bg-emerald-100 text-emerald-800' :
-                  weeklyMetrics.score >= 60 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
-                }`}>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-gray-900 text-white">
                   {weeklyMetrics.score}
                 </span>
               )}
@@ -647,18 +644,18 @@ export default function HistoryPage() {
 
           {/* Week Selector in Weekly Mode */}
           {viewMode === 'weekly' && weeklyMetrics && (
-            <div className="flex items-center justify-between sm:justify-end gap-2 px-2 py-1">
+            <div className="flex items-center justify-between sm:justify-end gap-1.5 px-2 py-1">
               <button
                 type="button"
                 onClick={() => { setSelectedWeekOffset(prev => prev - 1); setSelectedDayFilter(null); }}
-                className="p-1.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 transition cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                className="p-1.5 rounded-lg border border-gray-200/80 bg-white hover:bg-gray-50 text-gray-700 transition cursor-pointer flex items-center gap-1 text-xs font-medium"
                 title="Minggu Sebelumnya"
               >
                 <ChevronLeft className="w-4 h-4" />
                 <span className="hidden md:inline">Minggu Lalu</span>
               </button>
 
-              <span className="text-xs font-bold text-gray-800 px-2.5 py-1 bg-gray-50 rounded-lg border border-gray-200/80">
+              <span className="text-xs font-semibold text-gray-700 px-3 py-1 bg-gray-50 rounded-lg border border-gray-100">
                 {weeklyMetrics.weekLabel}
               </span>
 
@@ -666,10 +663,10 @@ export default function HistoryPage() {
                 type="button"
                 onClick={() => { setSelectedWeekOffset(prev => prev + 1); setSelectedDayFilter(null); }}
                 disabled={selectedWeekOffset >= 0}
-                className={`p-1.5 rounded-lg border border-gray-200 transition cursor-pointer flex items-center gap-1 text-xs font-semibold ${
+                className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center gap-1 text-xs font-medium ${
                   selectedWeekOffset >= 0
-                    ? 'bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed'
-                    : 'bg-gray-50 hover:bg-gray-100 text-gray-700'
+                    ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                    : 'border-gray-200/80 bg-white hover:bg-gray-50 text-gray-700'
                 }`}
                 title="Minggu Berikutnya"
               >
@@ -681,155 +678,154 @@ export default function HistoryPage() {
                 <button
                   type="button"
                   onClick={() => { setSelectedWeekOffset(0); setSelectedDayFilter(null); }}
-                  className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 underline ml-1 cursor-pointer"
+                  className="text-[11px] font-semibold text-gray-900 hover:text-black underline ml-1 cursor-pointer"
                 >
-                  Ke Minggu Ini
+                  Minggu Ini
                 </button>
               )}
             </div>
           )}
         </div>
 
-        {/* ─── WEEKLY TRACK & REVIEW COMPONENT ─── */}
+        {/* ─── WEEKLY TRACK & REVIEW COMPONENT (MINIMALIST & AESTHETIC) ─── */}
         {viewMode === 'weekly' && weeklyMetrics && (
           <div className="space-y-6">
             {/* Top Scorecard & Summary Banner */}
-            <div className="bg-white rounded-2xl p-6 sm:p-7 shadow-xs border border-gray-200/80 space-y-6">
+            <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100 space-y-8">
               
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-6 border-b border-gray-100">
-                {/* Score Left Column */}
-                <div className="flex items-center gap-4">
-                  <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex flex-col items-center justify-center border shadow-xs shrink-0 ${
+              {/* Header Hero Row */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-gray-100">
+                {/* Left: Score Badge & Title */}
+                <div className="flex items-start sm:items-center gap-5">
+                  <div className={`w-16 h-16 sm:w-18 sm:h-18 rounded-2xl flex flex-col items-center justify-center border transition-all shrink-0 ${
                     weeklyMetrics.score >= 80
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      ? 'bg-emerald-50/70 text-emerald-950 border-emerald-200/80 shadow-xs'
                       : weeklyMetrics.score >= 60
-                      ? 'bg-amber-50 text-amber-700 border-amber-200'
-                      : 'bg-rose-50 text-rose-700 border-rose-200'
+                      ? 'bg-amber-50/70 text-amber-950 border-amber-200/80 shadow-xs'
+                      : 'bg-rose-50/70 text-rose-950 border-rose-200/80 shadow-xs'
                   }`}>
-                    <span className="text-2xl sm:text-3xl font-extrabold tracking-tight leading-none">
+                    <span className="text-2xl sm:text-3xl font-extrabold tracking-tight">
                       {weeklyMetrics.score}
                     </span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-80 mt-1">
-                      Skor / 100
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">
+                      Skor
                     </span>
                   </div>
 
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
                         weeklyMetrics.score >= 80
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
                           : weeklyMetrics.score >= 60
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : 'bg-rose-50 text-rose-700 border-rose-200'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200/80'
+                          : 'bg-rose-50 text-rose-700 border-rose-200/80'
                       }`}>
                         {weeklyMetrics.scoreCategory}
                       </span>
                       <span className="text-xs text-gray-400 font-medium">
-                        • {weeklyMetrics.recordedDaysCount} dari 7 Hari Tercatat
+                        • {weeklyMetrics.recordedDaysCount} dari 7 hari tercatat
                       </span>
                     </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-gray-900">
-                      Rapor Disiplin Ritme Kafein Minggu Ini
+
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight">
+                      Rapor Ritme Sirkadian Minggu Ini
                     </h3>
-                    <p className="text-xs sm:text-sm text-gray-500 max-w-xl">
+                    <p className="text-xs sm:text-sm text-gray-500 max-w-xl leading-relaxed">
                       {weeklyMetrics.score >= 80
-                        ? 'Ritme konsumsi kafeinmu sangat teratur dan tidak membebani jam tidur maupun ritme sirkadian tubuh.'
+                        ? 'Ritme konsumsi kafeinmu sangat teratur, melindungi kualitas fase deep sleep dan fungsi metabolisme tubuh.'
                         : weeklyMetrics.score >= 60
-                        ? 'Pola konsumsimu cukup baik, namun ada beberapa catatan seperti jam ngopi sore yang perlu diperhatikan.'
+                        ? 'Pola konsumsimu cukup stabil, namun ada beberapa catatan seperti jam ngopi sore yang perlu diperhatikan.'
                         : 'Beban kafein dan jam istirahat di minggu ini membutuhkan perbaikan dan reset cut-off time.'}
                     </p>
                   </div>
                 </div>
 
-                {/* Status Badges Counts */}
-                <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-start bg-gray-50 p-2.5 rounded-xl border border-gray-200/60 shrink-0">
-                  <div className="text-center px-3 py-1">
-                    <span className="text-base font-extrabold text-emerald-600 block leading-tight">
-                      {weeklyMetrics.goodDaysCount}
-                    </span>
-                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                      Hari Prima 🟢
-                    </span>
+                {/* Right: Minimalist Status Pills */}
+                <div className="flex items-center gap-2 bg-gray-50/80 p-1.5 rounded-xl border border-gray-100 text-xs font-semibold self-start lg:self-auto">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white shadow-xs border border-gray-100">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span className="text-gray-900 font-bold">{weeklyMetrics.goodDaysCount}</span>
+                    <span className="text-gray-500 text-[11px]">Prima</span>
                   </div>
-                  <div className="w-[1px] h-7 bg-gray-200"></div>
-                  <div className="text-center px-3 py-1">
-                    <span className="text-base font-extrabold text-amber-600 block leading-tight">
-                      {weeklyMetrics.moderateDaysCount}
-                    </span>
-                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                      Cukup 🟡
-                    </span>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    <span className="text-gray-900 font-bold">{weeklyMetrics.moderateDaysCount}</span>
+                    <span className="text-gray-500 text-[11px]">Cukup</span>
                   </div>
-                  <div className="w-[1px] h-7 bg-gray-200"></div>
-                  <div className="text-center px-3 py-1">
-                    <span className="text-base font-extrabold text-rose-600 block leading-tight">
-                      {weeklyMetrics.poorDaysCount}
-                    </span>
-                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                      Evaluasi 🔴
-                    </span>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg">
+                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                    <span className="text-gray-900 font-bold">{weeklyMetrics.poorDaysCount}</span>
+                    <span className="text-gray-500 text-[11px]">Evaluasi</span>
                   </div>
                 </div>
               </div>
 
-              {/* 4 Weekly Quick Stat Cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-                <div className="bg-gray-50/60 p-4 rounded-xl border border-gray-200/70 flex flex-col justify-between">
-                  <span className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-amber-600" />
+              {/* 4 Minimalist Metric Tiles */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="bg-gray-50/60 rounded-2xl p-4 sm:p-5 border border-gray-100/80 hover:border-gray-200 transition-all flex flex-col justify-between">
+                  <span className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-amber-500" />
                     Rata-rata Kafein
                   </span>
-                  <div className="mt-2">
-                    <span className="text-xl font-bold text-gray-900">{weeklyMetrics.avgCaffeine}</span>
-                    <span className="text-xs font-medium text-gray-500 ml-1">mg / hari</span>
-                    <span className="text-[11px] text-gray-400 block mt-0.5">
-                      {weeklyMetrics.avgCaffeine <= 200 ? 'Rendah & Sangat Aman' : weeklyMetrics.avgCaffeine <= 350 ? 'Sedang' : 'Tinggi'}
+                  <div className="mt-3">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold text-gray-900 tracking-tight">{weeklyMetrics.avgCaffeine}</span>
+                      <span className="text-xs text-gray-500 font-medium">mg/hari</span>
+                    </div>
+                    <span className="text-[11px] text-gray-400 font-medium block mt-1">
+                      {weeklyMetrics.avgCaffeine <= 200 ? 'Zona Aman (< 200 mg)' : weeklyMetrics.avgCaffeine <= 350 ? 'Sedang' : 'Mendekati Batas FDA'}
                     </span>
                   </div>
                 </div>
 
-                <div className="bg-gray-50/60 p-4 rounded-xl border border-gray-200/70 flex flex-col justify-between">
-                  <span className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
-                    <Moon className="w-3.5 h-3.5 text-purple-600" />
+                <div className="bg-gray-50/60 rounded-2xl p-4 sm:p-5 border border-gray-100/80 hover:border-gray-200 transition-all flex flex-col justify-between">
+                  <span className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+                    <Moon className="w-3.5 h-3.5 text-indigo-500" />
                     Rata-rata Tidur
                   </span>
-                  <div className="mt-2">
-                    <span className="text-xl font-bold text-gray-900">{weeklyMetrics.avgSleep}</span>
-                    <span className="text-xs font-medium text-gray-500 ml-1">Jam / malam</span>
-                    <span className="text-[11px] text-gray-400 block mt-0.5">
+                  <div className="mt-3">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold text-gray-900 tracking-tight">{weeklyMetrics.avgSleep}</span>
+                      <span className="text-xs text-gray-500 font-medium">jam/malam</span>
+                    </div>
+                    <span className="text-[11px] text-gray-400 font-medium block mt-1">
                       {weeklyMetrics.avgSleep !== '-' && Number(weeklyMetrics.avgSleep) >= 7 ? 'Rentang Ideal (7–9 Jam)' : 'Di Bawah Anjuran'}
                     </span>
                   </div>
                 </div>
 
-                <div className="bg-gray-50/60 p-4 rounded-xl border border-gray-200/70 flex flex-col justify-between">
-                  <span className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
-                    <Coffee className="w-3.5 h-3.5 text-orange-600" />
+                <div className="bg-gray-50/60 rounded-2xl p-4 sm:p-5 border border-gray-100/80 hover:border-gray-200 transition-all flex flex-col justify-between">
+                  <span className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+                    <Coffee className="w-3.5 h-3.5 text-stone-600" />
                     Total Sesi Catatan
                   </span>
-                  <div className="mt-2">
-                    <span className="text-xl font-bold text-gray-900">{weeklyMetrics.weekAssessments.length}</span>
-                    <span className="text-xs font-medium text-gray-500 ml-1">Sesi Diagnosa</span>
-                    <span className="text-[11px] text-gray-400 block mt-0.5">
+                  <div className="mt-3">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold text-gray-900 tracking-tight">{weeklyMetrics.weekAssessments.length}</span>
+                      <span className="text-xs text-gray-500 font-medium">sesi</span>
+                    </div>
+                    <span className="text-[11px] text-gray-400 font-medium block mt-1">
                       {weeklyMetrics.recordedDaysCount} Hari Aktif Minggu Ini
                     </span>
                   </div>
                 </div>
 
-                <div className="bg-gray-50/60 p-4 rounded-xl border border-gray-200/70 flex flex-col justify-between">
-                  <span className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <div className="bg-gray-50/60 rounded-2xl p-4 sm:p-5 border border-gray-100/80 hover:border-gray-200 transition-all flex flex-col justify-between">
+                  <span className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
                     Rasio Hari Prima
                   </span>
-                  <div className="mt-2">
-                    <span className="text-xl font-bold text-emerald-700">
-                      {weeklyMetrics.recordedDaysCount > 0
-                        ? Math.round((weeklyMetrics.goodDaysCount / weeklyMetrics.recordedDaysCount) * 100)
-                        : 0}%
-                    </span>
-                    <span className="text-xs font-medium text-gray-500 ml-1">Bebas Gangguan</span>
-                    <span className="text-[11px] text-gray-400 block mt-0.5">
+                  <div className="mt-3">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold text-emerald-600 tracking-tight">
+                        {weeklyMetrics.recordedDaysCount > 0
+                          ? Math.round((weeklyMetrics.goodDaysCount / weeklyMetrics.recordedDaysCount) * 100)
+                          : 0}%
+                      </span>
+                      <span className="text-xs text-gray-500 font-medium">bebas beban</span>
+                    </div>
+                    <span className="text-[11px] text-gray-400 font-medium block mt-1">
                       Kualitas sirkadian terjaga
                     </span>
                   </div>
@@ -837,15 +833,15 @@ export default function HistoryPage() {
               </div>
 
               {/* ─── 7-DAY INTERACTIVE VISUAL TRACK (SENIN - MINGGU) ─── */}
-              <div className="space-y-3 pt-2">
+              <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-indigo-600" />
-                      <span>Pelacak 7 Hari (Senin – Minggu)</span>
+                      <Calendar className="w-4 h-4 text-gray-700" />
+                      <span>Aktivitas 7 Hari (Senin – Minggu)</span>
                     </h4>
-                    <p className="text-xs text-gray-500">
-                      Klik salah satu hari di bawah untuk menyaring riwayat khusus hari tersebut.
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Pilih salah satu hari untuk memfilter catatan di bawah secara spesifik.
                     </p>
                   </div>
 
@@ -853,16 +849,16 @@ export default function HistoryPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedDayFilter(null)}
-                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 px-2.5 py-1 rounded-lg transition cursor-pointer w-fit"
+                      className="text-xs font-semibold text-gray-700 hover:text-gray-900 flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition cursor-pointer w-fit"
                     >
-                      <X className="w-3.5 h-3.5" />
-                      <span>Tampilkan Semua Hari Minggu Ini</span>
+                      <X className="w-3.5 h-3.5 text-gray-400" />
+                      <span>Tampilkan Seluruh Minggu Ini</span>
                     </button>
                   )}
                 </div>
 
-                {/* 7 Day Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+                {/* 7 Day Minimalist Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 sm:gap-3">
                   {weeklyMetrics.days.map((day: DayMetric) => {
                     const isSelected = selectedDayFilter === day.dayIndex;
                     const isGood = day.status === 'good';
@@ -879,34 +875,38 @@ export default function HistoryPage() {
                           setSelectedDayFilter(isSelected ? null : day.dayIndex);
                         }}
                         disabled={isEmpty}
-                        className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between min-h-[115px] ${
+                        className={`p-3.5 rounded-2xl text-left transition-all duration-200 relative flex flex-col justify-between min-h-[125px] ${
                           isEmpty
-                            ? 'bg-gray-50/50 border-gray-200/60 opacity-60 cursor-not-allowed'
+                            ? 'bg-gray-50/40 border border-dashed border-gray-200/60 opacity-50 cursor-not-allowed'
                             : isSelected
-                            ? 'bg-indigo-50/70 border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs cursor-pointer'
-                            : 'bg-white border-gray-200/80 hover:border-gray-300 hover:shadow-xs cursor-pointer'
+                            ? 'bg-white border-2 border-gray-900 shadow-md ring-4 ring-gray-900/5 -translate-y-0.5 cursor-pointer'
+                            : 'bg-white border border-gray-200/80 hover:border-gray-300 hover:shadow-xs hover:-translate-y-0.5 cursor-pointer'
                         }`}
                       >
-                        {/* Day Header */}
+                        {/* Day & Date Header */}
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
                             {day.dayName}
                           </span>
-                          <span className="text-xs font-extrabold text-gray-900">
+                          <span className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center ${
+                            isSelected
+                              ? 'bg-gray-900 text-white'
+                              : 'text-gray-700 bg-gray-100/70'
+                          }`}>
                             {day.dateNumber}
                           </span>
                         </div>
 
                         {/* Middle Content */}
-                        <div className="my-2 space-y-1">
+                        <div className="my-2.5 space-y-1">
                           {day.status === 'empty' ? (
-                            <span className="text-[10px] text-gray-400 font-medium block">
-                              Belum ada data
+                            <span className="text-[11px] text-gray-300 font-medium block">
+                              —
                             </span>
                           ) : (
                             <>
-                              <div className="flex items-center gap-1 text-xs font-bold text-gray-900">
-                                <Coffee className="w-3 h-3 text-amber-600 shrink-0" />
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900">
+                                <Coffee className="w-3 h-3 text-stone-600 shrink-0" />
                                 <span>{day.totalCaffeine} mg</span>
                               </div>
                               {day.lastCoffeeTime && (
@@ -917,7 +917,7 @@ export default function HistoryPage() {
                               )}
                               {day.sleepHours !== null && day.sleepHours !== undefined && (
                                 <div className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
-                                  <Moon className="w-2.5 h-2.5 text-purple-400 shrink-0" />
+                                  <Moon className="w-2.5 h-2.5 text-indigo-400 shrink-0" />
                                   <span>{day.sleepHours}j tidur</span>
                                 </div>
                               )}
@@ -925,29 +925,29 @@ export default function HistoryPage() {
                           )}
                         </div>
 
-                        {/* Status Footer Pill */}
-                        <div>
+                        {/* Status Footer Indicator */}
+                        <div className="pt-1">
                           {isGood && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+                            <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50/80 px-2 py-0.5 rounded-md">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                              Bagus
-                            </span>
+                              <span>Prima</span>
+                            </div>
                           )}
                           {isModerate && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1">
+                            <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-amber-700 bg-amber-50/80 px-2 py-0.5 rounded-md">
                               <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                              Cukup
-                            </span>
+                              <span>Cukup</span>
+                            </div>
                           )}
                           {isPoor && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1">
+                            <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-rose-700 bg-rose-50/80 px-2 py-0.5 rounded-md">
                               <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                              Evaluasi
-                            </span>
+                              <span>Evaluasi</span>
+                            </div>
                           )}
                           {isEmpty && (
-                            <span className="text-[9px] font-medium text-gray-400">
-                              -
+                            <span className="text-[10px] text-gray-300">
+                              Kosong
                             </span>
                           )}
                         </div>
@@ -957,54 +957,54 @@ export default function HistoryPage() {
                 </div>
               </div>
 
-              {/* ─── DUA KOTAK KOMPARASI: YANG SUDAH BAGUS VS PERLU DITINGKATKAN ─── */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                {/* Positive Achievements (Kelebihan) */}
-                <div className="bg-emerald-50/40 border border-emerald-200/80 rounded-2xl p-5 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+              {/* ─── DUA KOLOM EVALUASI: INSIGHTS & FOKUS MINGGUAN ─── */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 pt-2">
+                {/* Left: Pencapaian Positif */}
+                <div className="bg-gray-50/50 rounded-2xl p-5 sm:p-6 border border-gray-100 space-y-4">
+                  <div className="flex items-center gap-2.5 pb-2 border-b border-gray-100">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-100/70 text-emerald-700 flex items-center justify-center shrink-0">
                       <CheckCircle2 className="w-4 h-4" />
                     </div>
                     <div>
-                      <h4 className="text-xs sm:text-sm font-bold text-emerald-900">
-                        Yang Sudah Bagus Minggu Ini
+                      <h4 className="text-xs sm:text-sm font-bold text-gray-900">
+                        Kekuatan & Kebiasaan Baik
                       </h4>
-                      <p className="text-[11px] text-emerald-700/80">
-                        Pencapaian positif ritme konsumsi kopi dan sirkadianmu.
+                      <p className="text-[11px] text-gray-500">
+                        Pola positif yang berhasil kamu pertahankan minggu ini.
                       </p>
                     </div>
                   </div>
 
-                  <ul className="space-y-2">
+                  <ul className="space-y-2.5">
                     {weeklyMetrics.goodPoints.map((pt, i) => (
-                      <li key={i} className="flex items-start gap-2 text-xs text-emerald-800 leading-relaxed">
-                        <span className="text-emerald-500 font-bold mt-0.5">•</span>
+                      <li key={i} className="flex items-start gap-2.5 text-xs text-gray-700 leading-relaxed">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 mt-1.5"></span>
                         <span>{pt}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
 
-                {/* Improvement Points (Kekurangan / Perlu Evaluasi) */}
-                <div className="bg-amber-50/40 border border-amber-200/80 rounded-2xl p-5 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                {/* Right: Area Fokus & Peningkatan */}
+                <div className="bg-gray-50/50 rounded-2xl p-5 sm:p-6 border border-gray-100 space-y-4">
+                  <div className="flex items-center gap-2.5 pb-2 border-b border-gray-100">
+                    <div className="w-7 h-7 rounded-lg bg-amber-100/70 text-amber-700 flex items-center justify-center shrink-0">
                       <AlertTriangle className="w-4 h-4" />
                     </div>
                     <div>
-                      <h4 className="text-xs sm:text-sm font-bold text-amber-900">
-                        Catatan Evaluasi / Perlu Diperbaiki
+                      <h4 className="text-xs sm:text-sm font-bold text-gray-900">
+                        Catatan & Area Peningkatan
                       </h4>
-                      <p className="text-[11px] text-amber-700/80">
-                        Poin kebiasaan yang berpotensi mengganggu kualitas istirahat.
+                      <p className="text-[11px] text-gray-500">
+                        Titik evaluasi untuk meningkatkan kualitas istirahat.
                       </p>
                     </div>
                   </div>
 
-                  <ul className="space-y-2">
+                  <ul className="space-y-2.5">
                     {weeklyMetrics.improvementPoints.map((pt, i) => (
-                      <li key={i} className="flex items-start gap-2 text-xs text-amber-800 leading-relaxed">
-                        <span className="text-amber-500 font-bold mt-0.5">•</span>
+                      <li key={i} className="flex items-start gap-2.5 text-xs text-gray-700 leading-relaxed">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5"></span>
                         <span>{pt}</span>
                       </li>
                     ))}
