@@ -22,11 +22,12 @@ COPY . .
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs
 
-# Set permissions for Laravel storage and bootstrap/cache
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
-    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+# Copy entrypoint script and set permissions
+COPY docker-entrypoint.sh /var/www/html/docker-entrypoint.sh
+RUN chmod +x /var/www/html/docker-entrypoint.sh \
+    && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+    && chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache
 
 EXPOSE 8000
 
-# Run migrations, link storage, and start server
-CMD ["sh", "-c", "php artisan storage:link && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8000"]
+ENTRYPOINT ["/var/www/html/docker-entrypoint.sh"]
