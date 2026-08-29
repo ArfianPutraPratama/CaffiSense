@@ -7,7 +7,7 @@ import {
 import { 
   HeartPulse, ArrowRight, RefreshCw, CheckCircle2, 
   Activity, Coffee, Zap, Clock, Moon, AlertTriangle, ShieldCheck,
-  Download, FileText, FileSpreadsheet, Droplets
+  Download, FileText, FileSpreadsheet, Droplets, Table
 } from 'lucide-react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { getLatestAssessmentApi } from '../services/api';
@@ -107,14 +107,13 @@ export default function InsightsPage() {
     return chartData.filter((_, idx) => idx % 12 === 0).map((d) => d.time);
   }, [chartData]);
 
-  const handleExportCSV = () => {
+  const handleExportExcel = () => {
     if (!result) {
       alert("Tidak ada data sesi untuk diekspor.");
       return;
     }
 
     try {
-      // Clean formatted date & time
       let formattedDate = 'Hari Ini';
       try {
         const rawDate = result.assessment_date || result.date || result.created_at;
@@ -142,16 +141,11 @@ export default function InsightsPage() {
 
       const estimatedMg = Math.round(result.estimated_caffeine_mg || 0);
       const waterIntake = result.water_intake_ml || 1500;
-      const mealInfo = result.meal_status === 'belum_makan' ? 'Perut Kosong (Belum Makan)' : `Sudah Makan (${result.last_meal_time || '12:30'})`;
-      const exerciseInfo = result.exercise_timing === 'sebelum_kopi'
-        ? `Sebelum Kopi (${result.exercise_duration_minutes || 30} Menit - Pre Workout)`
-        : (result.exercise_timing === 'sesudah_kopi' ? `Sesudah Kopi (${result.exercise_duration_minutes || 30} Menit - Post Workout)` : 'Tidak Berolahraga');
       const smokingInfo = !result.smoking_intensity || result.smoking_intensity === 'none'
         ? 'Tidak Merokok'
         : `Merokok: ${result.smoking_intensity} Batang/Hari`;
       const isHighImpact = result.ml_prediction === 1;
 
-      // Hitung beban 8 organ sesi ini
       const [h] = (rawTime || '12:00').split(':').map(Number);
       const isNight = h >= 20;
       const isLate = h >= 16;
@@ -188,31 +182,302 @@ export default function InsightsPage() {
       if (waterIntake < 1000 && estimatedMg > 0) mLoad = Math.min(100, mLoad + 25);
       if (sleepDur <= 5 && estimatedMg > 0) mLoad = Math.min(100, mLoad + 20);
 
-      // Build structured CSV lines for this single session
+      const organs = [
+        { name: "Otak & Sistem Saraf", load: bLoad, status: bLoad >= 70 ? 'Hiperstimulasi' : bLoad >= 40 ? 'Waspada' : 'Optimal', desc: "Blokade reseptor adenosin A1/A2A; menunda kantuk alami & fase tidur dalam" },
+        { name: "Jantung & Sirkulasi", load: hLoad, status: hLoad >= 70 ? 'Beban Tinggi' : hLoad >= 40 ? 'Waspada' : 'Stabil', desc: "Pelepasan katekolamin adrenalin; beban kontraktilitas pompa ventrikel" },
+        { name: "Lambung & Saluran Cerna", load: sLoad, status: sLoad >= 70 ? 'Iritasi Asam' : sLoad >= 40 ? 'Waspada' : 'Normal', desc: "Sekresi asam lambung HCl berlebih terhadap lapisan mukosa lambung" },
+        { name: "Ginjal & Cairan", load: kLoad, status: kLoad >= 70 ? 'Filtrasi Berat' : kLoad >= 40 ? 'Waspada' : 'Aman', desc: "Diuresis akut; peningkatan ekskresi cairan & ion natrium/kalium" },
+        { name: "Hati (Enzim CYP1A2)", load: lLoad, status: lLoad >= 70 ? 'Beban Hepatik' : lLoad >= 40 ? 'Waspada' : 'Normal', desc: "Metabolisme degradasi kafein oleh enzim sitokrom P450 di organ hati" },
+        { name: "Kandung Kemih", load: blLoad, status: blLoad >= 70 ? 'Risiko Nokturia' : blLoad >= 40 ? 'Waspada' : 'Normal', desc: "Iritasi urin pekat & dorongan kencing berulang di jam tidur malam" },
+        { name: "Mata & Saraf Visual", load: eLoad, status: eLoad >= 70 ? 'Kering / Lelah' : eLoad >= 40 ? 'Waspada' : 'Optimal', desc: "Astenopia otot siliaris kelopak & dehidrasi lapisan air mata (Dry Eye)" },
+        { name: "Sistem Otot Somatik", load: mLoad, status: mLoad >= 70 ? 'Ketegangan/Kram' : mLoad >= 40 ? 'Waspada' : 'Relaks', desc: "Deplesi ion elektrolit kalsium/magnesium & keterbatasan pemulihan somatik" }
+      ];
+
+      const getBadgeStyle = (load: number) => {
+        if (load >= 70) return 'background-color: #fee2e2; color: #b91c1c; font-weight: bold; text-align: center;';
+        if (load >= 40) return 'background-color: #fef3c7; color: #b45309; font-weight: bold; text-align: center;';
+        return 'background-color: #dcfce7; color: #15803d; font-weight: bold; text-align: center;';
+      };
+
+      const excelHtml = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+  <meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8">
+  <!--[if gte mso 9]>
+  <xml>
+    <x:ExcelWorkbook>
+      <x:ExcelWorksheets>
+        <x:ExcelWorksheet>
+          <x:Name>Laporan CaffiSense</x:Name>
+          <x:WorksheetOptions>
+            <x:DisplayGridlines/>
+          </x:WorksheetOptions>
+        </x:ExcelWorksheet>
+      </x:ExcelWorksheets>
+    </x:ExcelWorkbook>
+  </xml>
+  <![endif]-->
+  <style>
+    body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; font-size: 10.5pt; color: #1e293b; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+    th { border: 1px solid #cbd5e1; padding: 7px 10px; font-weight: bold; }
+    td { border: 1px solid #cbd5e1; padding: 6px 10px; font-size: 10pt; }
+    .header-banner { background-color: #0f172a; color: #ffffff; font-size: 13pt; font-weight: bold; text-align: center; height: 38px; }
+    .section-title { background-color: #334155; color: #ffffff; font-size: 10.5pt; font-weight: bold; padding: 6px 10px; text-align: left; }
+    .th-col { background-color: #f1f5f9; color: #0f172a; font-weight: bold; text-align: left; }
+    .label-col { background-color: #f8fafc; font-weight: bold; color: #334155; width: 200px; }
+    .val-col { width: 280px; }
+  </style>
+</head>
+<body>
+  <table>
+    <tr>
+      <th colspan="4" class="header-banner">CAFFISENSE - LEMBAR KONSULTASI MEDIS HARIAN</th>
+    </tr>
+    <tr>
+      <td class="label-col">Nama Pasien / User</td>
+      <td class="val-col">${user?.name || 'Pasien CaffiSense'}</td>
+      <td class="label-col">Tanggal Pemeriksaan</td>
+      <td class="val-col">${formattedDate}</td>
+    </tr>
+    <tr>
+      <td class="label-col">Email / Kontak</td>
+      <td class="val-col">${user?.email || '-'}</td>
+      <td class="label-col">Jam Sesi Terakhir</td>
+      <td class="val-col">${cleanTime}</td>
+    </tr>
+    <tr>
+      <td class="label-col">Status Risiko Sirkadian</td>
+      <td class="val-col" style="font-weight: bold; color: ${isHighImpact ? '#dc2626' : '#16a34a'};">
+        ${isHighImpact ? 'POTENSI GANGGUAN TINGGI' : 'OPTIMAL / AMAN'}
+      </td>
+      <td class="label-col">Total Kafein Terdeteksi</td>
+      <td class="val-col"><b>${estimatedMg} mg</b> (${Math.round((estimatedMg / 400) * 100)}% dari Batas FDA 400 mg)</td>
+    </tr>
+    <tr><td colspan="4" style="height: 12px; border: none;"></td></tr>
+    <tr>
+      <th colspan="4" class="section-title">1. DATA PARAMETER KEBIASAAN HARIAN (SESI INI)</th>
+    </tr>
+    <tr>
+      <th class="th-col" style="width: 220px;">Parameter Klinis</th>
+      <th class="th-col" style="width: 150px; text-align: center;">Nilai Sesi Ini</th>
+      <th class="th-col" style="width: 140px; text-align: center;">Status Skrining</th>
+      <th class="th-col">Interpretasi & Standar Medis</th>
+    </tr>
+    <tr>
+      <td><b>Konsumsi Kopi Harian</b></td>
+      <td style="text-align: center;">${result.coffee_cups_per_day} Cangkir (${result.coffee_size || 'Sedang'})</td>
+      <td style="text-align: center; ${result.coffee_cups_per_day > 4 ? 'color: #dc2626; font-weight: bold;' : 'color: #16a34a;'}">${result.coffee_cups_per_day > 4 ? 'Berlebih' : 'Normal'}</td>
+      <td>Batas anjuran wajar 3-4 cangkir standar per hari</td>
+    </tr>
+    <tr style="background-color: #f8fafc;">
+      <td><b>Beban Kafein Masuk</b></td>
+      <td style="text-align: center;"><b>${estimatedMg} mg</b></td>
+      <td style="text-align: center; ${estimatedMg > 400 ? 'color: #dc2626; font-weight: bold;' : 'color: #16a34a;'}">${Math.round((estimatedMg / 400) * 100)}% Batas FDA</td>
+      <td>${estimatedMg > 400 ? 'Melebihi ambang batas toleransi FDA (400 mg/hari)' : 'Dalam batas aman FDA'}</td>
+    </tr>
+    <tr>
+      <td><b>Waktu Minum Terakhir</b></td>
+      <td style="text-align: center;">${cleanTime}</td>
+      <td style="text-align: center; ${parseInt((rawTime || '12').split(':')[0]) >= 18 ? 'color: #d97706; font-weight: bold;' : 'color: #16a34a;'}">${parseInt((rawTime || '12').split(':')[0]) >= 18 ? 'Dekat Jam Tidur' : 'Aman'}</td>
+      <td>Waktu cut-off ideal minimal 6 jam sebelum istirahat malam</td>
+    </tr>
+    <tr style="background-color: #f8fafc;">
+      <td><b>Kondisi Lambung & Makan</b></td>
+      <td style="text-align: center;">${result.meal_status === 'belum_makan' ? 'Perut Kosong' : 'Sudah Makan'}</td>
+      <td style="text-align: center; ${result.meal_status === 'belum_makan' ? 'color: #dc2626; font-weight: bold;' : 'color: #16a34a;'}">${result.meal_status === 'belum_makan' ? 'Perhatian' : 'Optimal'}</td>
+      <td>${result.meal_status === 'belum_makan' ? 'Asam lambung HCl meningkat masif tanpa penyangga (buffer)' : 'Aman terlapisi nutrisi makanan'}</td>
+    </tr>
+    <tr>
+      <td><b>Aktivitas Olahraga</b></td>
+      <td style="text-align: center;">${result.exercise_timing !== 'tidak_olahraga' ? `${result.exercise_duration_minutes || 30} Menit` : '0 Menit'}</td>
+      <td style="text-align: center;">${result.exercise_timing !== 'tidak_olahraga' ? 'Aktif' : 'Metabolisme Pasif'}</td>
+      <td>Olahraga meningkatkan efisiensi sirkulasi perifer dan otot</td>
+    </tr>
+    <tr style="background-color: #f8fafc;">
+      <td><b>Konsumsi Nikotin / Rokok</b></td>
+      <td style="text-align: center;">${smokingInfo}</td>
+      <td style="text-align: center; ${result.smoking_intensity && result.smoking_intensity !== 'none' ? 'color: #d97706; font-weight: bold;' : 'color: #16a34a;'}">${result.smoking_intensity && result.smoking_intensity !== 'none' ? 'Induksi CYP1A2' : 'Normal'}</td>
+      <td>Nikotin mempercepat degradasi waktu paruh kafein di organ hati</td>
+    </tr>
+    <tr>
+      <td><b>Asupan Air Putih</b></td>
+      <td style="text-align: center;">${waterIntake} ml</td>
+      <td style="text-align: center; ${waterIntake < 1000 ? 'color: #dc2626; font-weight: bold;' : 'color: #16a34a;'}">${waterIntake < 1000 ? 'Dehidrasi Berat' : 'Tercukupi'}</td>
+      <td>Standar Kemenkes RI: Minimal 2.000 ml (8 gelas) per hari</td>
+    </tr>
+    <tr style="background-color: #f8fafc;">
+      <td><b>Pola Tidur Semalam</b></td>
+      <td style="text-align: center;">${result.sleep_duration ? `${result.sleep_duration} Jam` : '-'}</td>
+      <td style="text-align: center; ${Number(result.sleep_duration) <= 5 ? 'color: #dc2626; font-weight: bold;' : 'color: #16a34a;'}">${result.sleep_quality || '-'}</td>
+      <td>Rekomendasi Kemenkes & AASM: 7-8 jam per malam</td>
+    </tr>
+    <tr>
+      <td><b>Estimasi Tubuh Bebas Kafein</b></td>
+      <td style="text-align: center;"><b>${safeTimePoint}</b></td>
+      <td style="text-align: center;">Waktu Paruh ~5 Jam</td>
+      <td>Kadar kafein darah di bawah ambang 50 mg untuk fase Deep Sleep</td>
+    </tr>
+    <tr><td colspan="4" style="height: 12px; border: none;"></td></tr>
+    <tr>
+      <th colspan="4" class="section-title">2. PEMETAAN BEBAN FISIOLOGIS 8 ORGAN TUBUH (SESI INI)</th>
+    </tr>
+    <tr>
+      <th class="th-col" style="width: 220px;">Organ Tubuh</th>
+      <th class="th-col" style="width: 150px; text-align: center;">Beban Fisiologis</th>
+      <th class="th-col" style="width: 140px; text-align: center;">Status Klinis</th>
+      <th class="th-col">Keterangan Medis & Mekanisme Fisiologis</th>
+    </tr>
+    ${organs.map(o => `
+    <tr>
+      <td><b>${o.name}</b></td>
+      <td style="text-align: center; font-weight: bold;">${o.load}%</td>
+      <td style="${getBadgeStyle(o.load)}">${o.status}</td>
+      <td>${o.desc}</td>
+    </tr>
+    `).join('')}
+    <tr><td colspan="4" style="height: 12px; border: none;"></td></tr>
+    <tr>
+      <th colspan="4" class="section-title">3. LEMBAR CATATAN KONSULTASI DOKTER & VALIDASI KLINIS</th>
+    </tr>
+    <tr>
+      <td class="label-col">Catatan Dokter Pemeriksa</td>
+      <td colspan="3" style="height: 35px; vertical-align: top; color: #94a3b8;">...................................................................................................................................................................</td>
+    </tr>
+    <tr>
+      <td class="label-col">Rekomendasi Terapi / Resep</td>
+      <td colspan="3" style="height: 35px; vertical-align: top; color: #94a3b8;">...................................................................................................................................................................</td>
+    </tr>
+    <tr>
+      <td class="label-col">Tanggal Konsultasi</td>
+      <td>........................................................</td>
+      <td class="label-col">Tanda Tangan & Stempel</td>
+      <td>______________________________________</td>
+    </tr>
+    <tr>
+      <td colspan="4" style="font-size: 8.5pt; color: #64748b; background-color: #f8fafc; font-style: italic;">
+        * Dokumen spreadsheet ini diterbitkan secara otomatis oleh CaffiSense sebagai instrumen skrining klinis harian berbasis farmakokinetik kafein.
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+      `;
+
+      const blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      const fileDate = (result.created_at || new Date().toISOString()).split('T')[0];
+      link.setAttribute("download", `CaffiSense_TabelMedis_${fileDate}.xls`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setShowExportMenu(false);
+    } catch (err) {
+      console.error(err);
+      alert("Gagal mengekspor Excel");
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (!result) {
+      alert("Tidak ada data sesi untuk diekspor.");
+      return;
+    }
+
+    try {
+      let formattedDate = 'Hari Ini';
+      try {
+        const rawDate = result.assessment_date || result.date || result.created_at;
+        if (rawDate) {
+          const d = new Date(rawDate);
+          if (!isNaN(d.getTime())) {
+            formattedDate = d.toLocaleDateString('id-ID', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric'
+            });
+          } else {
+            formattedDate = String(rawDate).split('T')[0];
+          }
+        }
+      } catch {
+        formattedDate = new Date().toLocaleDateString('id-ID');
+      }
+
+      const rawTime = result.last_coffee_time || '15:00';
+      const cleanTime = rawTime.includes(':') 
+        ? rawTime.split(':').slice(0, 2).join(':') + ' WIB' 
+        : rawTime + ' WIB';
+
+      const estimatedMg = Math.round(result.estimated_caffeine_mg || 0);
+      const waterIntake = result.water_intake_ml || 1500;
+      const smokingInfo = !result.smoking_intensity || result.smoking_intensity === 'none'
+        ? 'Tidak Merokok'
+        : `Merokok: ${result.smoking_intensity} Batang/Hari`;
+      const isHighImpact = result.ml_prediction === 1;
+
+      const [h] = (rawTime || '12:00').split(':').map(Number);
+      const isNight = h >= 20;
+      const isLate = h >= 16;
+      const sleepDur = Number(result.sleep_duration) || 7;
+
+      let bLoad = Math.min(100, Math.round((estimatedMg / 400) * 80));
+      if (isNight && estimatedMg > 0) bLoad = Math.min(100, bLoad + 30);
+      else if (isLate && estimatedMg > 0) bLoad = Math.min(100, bLoad + 20);
+      if (sleepDur <= 5 && estimatedMg > 0) bLoad = Math.min(100, bLoad + 20);
+
+      let hLoad = Math.min(100, Math.round((estimatedMg / 400) * 75));
+      if (result.meal_status === 'belum_makan' && estimatedMg > 0) hLoad = Math.min(100, hLoad + 12);
+      if (isNight && estimatedMg > 0) hLoad = Math.min(100, hLoad + 15);
+
+      let sLoad = Math.min(100, Math.round((estimatedMg / 400) * 65));
+      if (result.meal_status === 'belum_makan' && estimatedMg > 0) sLoad = Math.min(100, sLoad + 30);
+
+      let kLoad = Math.min(100, Math.round((estimatedMg / 400) * 60));
+      if (waterIntake < 1000) kLoad = Math.min(100, kLoad + 25);
+      if (sleepDur <= 5 && estimatedMg > 0) kLoad = Math.min(100, kLoad + 15);
+
+      let lLoad = Math.min(100, Math.round((estimatedMg / 400) * 70));
+      if (result.smoking_intensity && result.smoking_intensity !== 'none') lLoad = Math.min(100, lLoad + 20);
+
+      let blLoad = Math.min(100, Math.round((estimatedMg / 400) * 50));
+      if (waterIntake < 1000 && estimatedMg > 0) blLoad = Math.min(100, blLoad + 15);
+      if (isNight && estimatedMg > 150) blLoad = Math.min(100, blLoad + 30);
+
+      let eLoad = Math.min(100, Math.round((estimatedMg / 400) * 35));
+      if (waterIntake < 1000 && estimatedMg > 0) eLoad = Math.min(100, eLoad + 25);
+      if (sleepDur <= 5) eLoad = Math.min(100, eLoad + 25);
+
+      let mLoad = Math.min(100, Math.round((estimatedMg / 400) * 45));
+      if (waterIntake < 1000 && estimatedMg > 0) mLoad = Math.min(100, mLoad + 25);
+      if (sleepDur <= 5 && estimatedMg > 0) mLoad = Math.min(100, mLoad + 20);
+
       const csvLines: string[] = [
-        "CAFFISENSE - LAPORAN KONSULTASI MEDIS HARIAN",
-        `Dicetak Pada,"${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID')}"`,
-        `Nama Pasien,"${user?.name || 'Pasien CaffiSense'}"`,
-        `Kontak / Email,"${user?.email || '-'}"`,
-        `Tanggal Pemeriksaan,"${formattedDate}"`,
-        `Jam Sesi Terakhir,"${cleanTime}"`,
-        `Status Risiko Sirkadian,"${isHighImpact ? 'TINGGI (Beresiko Disrupsi Tidur)' : 'OPTIMAL / AMAN'}"`,
-        "",
-        "--- 1. DATA PARAMETER KEBIASAAN HARIAN (SESI INI) ---",
-        "Parameter,Nilai Sesi Ini,Keterangan & Standar Klinis",
-        `Total Konsumsi Kopi,"${result.coffee_cups_per_day} Cangkir (${result.coffee_size || 'Sedang'})","Maksimal anjuran sehat: 3-4 cangkir/hari"`,
-        `Estimasi Beban Kafein,"${estimatedMg} mg (${Math.round((estimatedMg / 400) * 100)}% Batas FDA)","${estimatedMg > 400 ? 'Melebihi batas aman FDA (400 mg/hari)' : 'Dalam batas aman FDA'}"`,
-        `Waktu Terakhir Minum,"${cleanTime}","${parseInt((rawTime || '12').split(':')[0]) >= 18 ? 'Sangat dekat jam tidur (< 6 jam sebelum tidur)' : 'Waktu cut-off aman'}"`,
-        `Kondisi Lambung & Makan,"${mealInfo}","${result.meal_status === 'belum_makan' ? 'Perhatian: Asam lambung HCl naik tanpa buffer makanan' : 'Aman terlapisi nutrisi makanan'}"`,
-        `Aktivitas Fisik / Olahraga,"${exerciseInfo}","Olahraga memobilisasi glikogen otot dan sirkulasi darah"`,
-        `Konsumsi Nikotin / Rokok,"${smokingInfo}","${result.smoking_intensity && result.smoking_intensity !== 'none' ? 'Nikotin menginduksi enzim CYP1A2 hati' : 'Laju metabolisme hepatik normal'}"`,
-        `Asupan Air Putih,"${waterIntake} ml","${waterIntake >= 2000 ? 'Optimal (Standar Kemenkes 8 Gelas)' : waterIntake >= 1500 ? 'Cukup' : 'Kurang / Dehidrasi (< 1.000 ml)'}"`,
-        `Pola Tidur Semalam,"${result.sleep_duration ? `${result.sleep_duration} Jam (${result.sleep_quality})` : 'Dilewati / Tidak Diisi'}","Rekomendasi Kemenkes & AASM: 7-8 jam/malam"`,
-        `Perkiraan Tubuh Bebas Kafein,"${safeTimePoint}","Waktu paruh 5 jam; kadar kafein < 50 mg untuk Deep Sleep"`,
-        `Keluhan / Gejala Bebas,"${(result.free_text_experience || '-').replace(/"/g, '""')}","Gejala subjektif yang dilaporkan pasien"`,
-        "",
-        "--- 2. PEMETAAN BEBAN FISIOLOGIS ORGAN TUBUH (SESI INI) ---",
-        "Organ Tubuh,Beban (%),Status Klinis,Keterangan Medis",
+        "sep=,",
+        "CAFFISENSE - LEMBAR KONSULTASI MEDIS HARIAN,,,",
+        `Dicetak Pada,"${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID')}",,`,
+        `Nama Pasien,"${user?.name || 'Pasien CaffiSense'}",Tanggal Pemeriksaan,"${formattedDate}"`,
+        `Email / Kontak,"${user?.email || '-'}",Jam Sesi Terakhir,"${cleanTime}"`,
+        `Status Risiko Sirkadian,"${isHighImpact ? 'POTENSI GANGGUAN TINGGI' : 'OPTIMAL / AMAN'}",Total Kafein,"${estimatedMg} mg (${Math.round((estimatedMg / 400) * 100)}% Batas FDA)"`,
+        ",,,",
+        "[ 1. DATA PARAMETER KEBIASAAN HARIAN (SESI INI) ],,,",
+        "Parameter Klinis,Nilai Sesi Ini,Status Skrining,Standar Medis & Interpretasi",
+        `Konsumsi Kopi Harian,"${result.coffee_cups_per_day} Cangkir (${result.coffee_size || 'Sedang'})","${result.coffee_cups_per_day > 4 ? 'Berlebih' : 'Normal'}","Batas anjuran wajar 3-4 cangkir standar per hari"`,
+        `Beban Kafein Masuk,"${estimatedMg} mg","${Math.round((estimatedMg / 400) * 100)}% Batas FDA","${estimatedMg > 400 ? 'Melebihi batas aman FDA (400 mg/hari)' : 'Dalam batas aman FDA'}"`,
+        `Waktu Minum Terakhir,"${cleanTime}","${parseInt((rawTime || '12').split(':')[0]) >= 18 ? 'Dekat Jam Tidur' : 'Aman'}","Waktu cut-off ideal minimal 6 jam sebelum istirahat malam"`,
+        `Kondisi Lambung & Makan,"${result.meal_status === 'belum_makan' ? 'Perut Kosong' : 'Sudah Makan'}","${result.meal_status === 'belum_makan' ? 'Perhatian' : 'Optimal'}","${result.meal_status === 'belum_makan' ? 'Asam lambung HCl meningkat masif tanpa penyangga (buffer)' : 'Aman terlapisi nutrisi makanan'}"`,
+        `Aktivitas Olahraga,"${result.exercise_timing !== 'tidak_olahraga' ? `${result.exercise_duration_minutes || 30} Menit` : '0 Menit'}","${result.exercise_timing !== 'tidak_olahraga' ? 'Aktif' : 'Pasif'}","Olahraga meningkatkan efisiensi sirkulasi perifer dan otot"`,
+        `Konsumsi Nikotin / Rokok,"${smokingInfo}","${result.smoking_intensity && result.smoking_intensity !== 'none' ? 'Induksi CYP1A2' : 'Normal'}","Nikotin mempercepat pemecahan kafein di organ hati hingga 2x lipat"`,
+        `Asupan Air Putih,"${waterIntake} ml","${waterIntake < 1000 ? 'Dehidrasi Berat' : 'Tercukupi'}","Standar Kemenkes RI minimal 2.000 ml (8 gelas) per hari"`,
+        `Pola Tidur Semalam,"${result.sleep_duration ? `${result.sleep_duration} Jam` : '-'}","${result.sleep_quality || '-'}","Rekomendasi Kemenkes & AASM: 7-8 jam per malam"`,
+        `Estimasi Bebas Kafein,"${safeTimePoint}","Waktu Paruh ~5 Jam","Kadar kafein < 50 mg untuk fase Deep Sleep"`,
+        `Keluhan / Gejala Bebas,"${(result.free_text_experience || '-').replace(/"/g, '""')}","Gejala Pasien","Keluhan subjektif yang dilaporkan pasien"`,
+        ",,,",
+        "[ 2. PEMETAAN BEBAN FISIOLOGIS 8 ORGAN TUBUH (SESI INI) ],,,",
+        "Organ Tubuh,Beban Fisiologis (%),Status Klinis,Keterangan Medis & Mekanisme",
         `Otak & Sistem Saraf,${bLoad}%,${bLoad >= 70 ? 'Hiperstimulasi' : bLoad >= 40 ? 'Waspada' : 'Optimal'},"Blokade reseptor adenosin A1/A2A; menunda kantuk alami & fase tidur dalam"`,
         `Jantung & Sirkulasi,${hLoad}%,${hLoad >= 70 ? 'Beban Tinggi' : hLoad >= 40 ? 'Waspada' : 'Stabil'},"Pelepasan katekolamin adrenalin; beban kontraktilitas pompa ventrikel"`,
         `Lambung & Saluran Cerna,${sLoad}%,${sLoad >= 70 ? 'Iritasi Asam' : sLoad >= 40 ? 'Waspada' : 'Normal'},"Sekresi asam lambung HCl berlebih terhadap lapisan mukosa lambung"`,
@@ -221,16 +486,15 @@ export default function InsightsPage() {
         `Kandung Kemih,${blLoad}%,${blLoad >= 70 ? 'Risiko Nokturia' : blLoad >= 40 ? 'Waspada' : 'Normal'},"Iritasi urin pekat & dorongan kencing berulang di jam tidur malam"`,
         `Mata & Saraf Visual,${eLoad}%,${eLoad >= 70 ? 'Kering / Lelah' : eLoad >= 40 ? 'Waspada' : 'Optimal'},"Astenopia otot siliaris kelopak & dehidrasi lapisan air mata (Dry Eye)"`,
         `Sistem Otot Somatik,${mLoad}%,${mLoad >= 70 ? 'Ketegangan/Kram' : mLoad >= 40 ? 'Waspada' : 'Relaks'},"Deplesi ion elektrolit kalsium/magnesium & keterbatasan pemulihan somatik"`,
-        "",
-        "--- 3. CATATAN MEDIS & KONSULTASI DOKTER ---",
-        "Catatan Dokter Rujukan,\"....................................................................................................\"",
-        "Rekomendasi Terapi / Resep,\"....................................................................................................\"",
-        "Tanda Tangan & Stempel Faskes,\"___________________________\"",
-        "",
-        "Disclaimer,\"* Dokumen CSV/Excel ini diterbitkan oleh CaffiSense sebagai instrumen skrining farmakokinetik harian untuk bahan konsultasi bersama dokter/tenaga medis profesional.\""
+        ",,,",
+        "[ 3. LEMBAR CATATAN KONSULTASI DOKTER & VALIDASI KLINIS ],,,",
+        "Catatan Dokter Rujukan,\"........................................................................\",,",
+        "Rekomendasi Terapi / Resep,\"........................................................................\",,",
+        "Tanda Tangan & Stempel Faskes,\"___________________________________________\",,",
+        ",,,",
+        "Disclaimer,\"* Dokumen spreadsheet ini diterbitkan oleh CaffiSense sebagai instrumen skrining klinis harian.\",,"
       ];
 
-      // Add UTF-8 BOM so Excel opens accents and special chars properly
       const csvContent = "\uFEFF" + csvLines.join("\r\n");
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -652,10 +916,10 @@ export default function InsightsPage() {
                   className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 text-gray-700 rounded-xl font-bold text-xs transition border border-gray-200 shadow-2xs disabled:opacity-50 cursor-pointer"
                 >
                   {isExporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5 text-indigo-600" />}
-                  <span>Ekspor Laporan (PDF)</span>
+                  <span>Ekspor Laporan</span>
                 </button>
                 {showExportMenu && (
-                  <div className="absolute top-full right-0 mt-1.5 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 overflow-hidden">
+                  <div className="absolute top-full right-0 mt-1.5 w-60 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 overflow-hidden">
                     <button 
                       type="button"
                       onClick={handleExportPDF} 
@@ -664,7 +928,18 @@ export default function InsightsPage() {
                       <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
                       <div>
                         <div className="font-bold text-gray-900">Laporan Medis (PDF)</div>
-                        <div className="text-[10px] text-gray-400">Ringkasan Sesi Hari Ini untuk Dokter</div>
+                        <div className="text-[10px] text-gray-400">Format 2 halaman siap cetak & tanda tangan</div>
+                      </div>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={handleExportExcel} 
+                      className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 cursor-pointer border-t border-gray-50"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <div>
+                        <div className="font-bold text-gray-900">Tabel Excel (.xls)</div>
+                        <div className="text-[10px] text-gray-400">Langsung berupa tabel rapi dengan border</div>
                       </div>
                     </button>
                     <button 
@@ -672,10 +947,10 @@ export default function InsightsPage() {
                       onClick={handleExportCSV} 
                       className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 cursor-pointer border-t border-gray-50"
                     >
-                      <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <Table className="w-4 h-4 text-sky-600 shrink-0" />
                       <div>
-                        <div className="font-bold text-gray-900">Unduh Excel / CSV (Sesi Ini)</div>
-                        <div className="text-[10px] text-gray-400">Ringkasan data klinis untuk spreadsheet</div>
+                        <div className="font-bold text-gray-900">Data Tabel (CSV)</div>
+                        <div className="text-[10px] text-gray-400">Format tabel 4-kolom untuk spreadsheet</div>
                       </div>
                     </button>
                   </div>
