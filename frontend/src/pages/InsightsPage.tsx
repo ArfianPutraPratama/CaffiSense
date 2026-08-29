@@ -11,12 +11,14 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { getLatestAssessmentApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import AiAnalysisView from '../components/AiAnalysisView';
 import OrganImpactMatrix from '../components/OrganImpactMatrix';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 export default function InsightsPage() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [result, setResult] = useState<any>(null);
@@ -161,101 +163,218 @@ export default function InsightsPage() {
     try {
       const doc = new jsPDF('p', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       
-      // Header
-      doc.setFontSize(20);
-      doc.setTextColor(30, 41, 59);
-      doc.text("Laporan Analisis Medis CaffiSense", pageWidth / 2, 20, { align: 'center' });
-      
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139);
-      doc.text(`Dicetak pada: ${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID')}`, pageWidth / 2, 27, { align: 'center' });
+      // 1. Official Medical Header Banner (Dark Navy)
+      doc.setFillColor(15, 23, 42); // Slate-900
+      doc.rect(0, 0, pageWidth, 26, 'F');
 
-      // -- SECTION 1: KONSUMSI HARI INI
       doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
-      doc.text("Ringkasan Kondisi Terkini", 15, 42);
-      
-      doc.setFontSize(10);
-      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text("CAFFISENSE - LEMBAR KONSULTASI MEDIS HARIAN", 15, 11);
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(203, 213, 225);
+      doc.text("Laporan Evaluasi Beban Farmakokinetik Kafein & Ritme Sirkadian Tubuh untuk Dokter / Tenaga Medis", 15, 17);
+
+      // System Accent Dot
+      doc.setFillColor(249, 115, 22); // Orange-500
+      doc.circle(pageWidth - 16, 13, 2.5, 'F');
+
+      // 2. Metadata Box Sesi Hari Ini
+      const sessionDate = result.assessment_date || result.date || (result.created_at ? result.created_at.split(' ')[0] : new Date().toISOString().split('T')[0]);
+      const sessionTime = result.last_coffee_time || '15:00';
       const estimatedMg = Math.round(result.estimated_caffeine_mg || 0);
       const waterIntake = result.water_intake_ml || 1500;
-      const mealInfo = result.meal_status === 'belum_makan' 
-        ? 'Perut Kosong (Belum Makan)' 
-        : `Sudah Makan (${result.last_meal_time || '12:30'})`;
+      const mealInfo = result.meal_status === 'belum_makan' ? 'Perut Kosong (Belum Makan)' : `Sudah Makan (${result.last_meal_time || '12:30'})`;
       const exerciseInfo = result.exercise_timing === 'sebelum_kopi'
-        ? `Sebelum Kopi (${result.exercise_duration_minutes || 30} Menit - Pre-Workout)`
-        : (result.exercise_timing === 'sesudah_kopi' 
-            ? `Sesudah Kopi (${result.exercise_duration_minutes || 30} Menit - Post-Workout)` 
-            : 'Tidak Berolahraga (Metabolisme Pasif)');
+        ? `Sebelum Kopi (${result.exercise_duration_minutes || 30} Menit)`
+        : (result.exercise_timing === 'sesudah_kopi' ? `Sesudah Kopi (${result.exercise_duration_minutes || 30} Menit)` : 'Tidak Berolahraga');
       const smokingInfo = !result.smoking_intensity || result.smoking_intensity === 'none'
-        ? 'Tidak Merokok (Metabolisme Normal)'
-        : `Merokok: ${result.smoking_intensity} Batang (Akselerasi CYP1A2 Hati)`;
-      
-      doc.text(`Total Konsumsi: ${result.coffee_cups_per_day} Cangkir (${result.coffee_size || 'Sedang'})`, 15, 50);
-      doc.text(`Estimasi Kafein: ${estimatedMg} mg (${Math.round((estimatedMg / 400) * 100)}% dari Batas FDA)`, 15, 56);
-      doc.text(`Kondisi Perut: ${mealInfo}`, 15, 62);
-      doc.text(`Aktivitas Olahraga: ${exerciseInfo}`, 15, 68);
-      doc.text(`Konsumsi Rokok: ${smokingInfo}`, 15, 74);
-      doc.text(`Asupan Air Putih: ${waterIntake} ml (${waterIntake >= 2000 ? 'Status Hidrasi: Optimal' : waterIntake >= 1500 ? 'Status Hidrasi: Cukup' : 'Status Hidrasi: Kurang'})`, 15, 80);
-      doc.text(`Waktu Minum Terakhir: ${result.last_coffee_time || '15:00'}`, 15, 86);
-      doc.text(`Pola Istirahat: ${result.sleep_duration ? `${result.sleep_duration} Jam (Kualitas: ${result.sleep_quality})` : 'Dilewati/Tidak Diisi'}`, 15, 92);
-      doc.text(`Prediksi Beban Fisiologis: ${result.ml_prediction === 1 ? 'Tinggi (Beresiko Gangguan)' : 'Ambang Aman'}`, 15, 98);
+        ? 'Tidak Merokok'
+        : `Merokok: ${result.smoking_intensity} Batang/Hari`;
+      const isHighImpact = result.ml_prediction === 1;
 
-      // -- SECTION 2: AI ANALYSIS
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
-      doc.text("Evaluasi Klinis & Rekomendasi (AI)", 15, 95);
-      
+      autoTable(doc, {
+        startY: 29,
+        theme: 'plain',
+        styles: { fontSize: 8, cellPadding: 1.2, textColor: [30, 41, 59] },
+        columnStyles: {
+          0: { fontStyle: 'bold', width: 30 },
+          1: { width: 62 },
+          2: { fontStyle: 'bold', width: 32 },
+          3: { width: 63 }
+        },
+        body: [
+          ["Nama Pasien / User:", `${user?.name || 'Pasien CaffiSense'}`, "Tanggal Pemeriksaan:", `${sessionDate}`],
+          ["Email / Kontak:", `${user?.email || 'Konsultasi Mandiri'}`, "Jam Sesi Terakhir:", `${sessionTime} WIB`],
+          ["Status Risiko Sirkadian:", isHighImpact ? "TINGGI (Beresiko Disrupsi Tidur)" : "OPTIMAL / AMAN", "Total Kafein Terdeteksi:", `${estimatedMg} mg (${Math.round((estimatedMg / 400) * 100)}% Batas FDA)`]
+        ]
+      });
+
+      // 3. SECTION 1: TABEL PARAMETER VITAL KONSUMSI SESI INI
+      const nextY1 = (doc as any).lastAutoTable.finalY + 3.5;
       doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("1. Data Parameter Kebiasaan Harian (Sesi Ini)", 15, nextY1);
+
+      autoTable(doc, {
+        startY: nextY1 + 1.5,
+        head: [["Parameter Pemeriksaan", "Hasil Input Pasien", "Interpretasi & Standar Klinis"]],
+        theme: 'grid',
+        headStyles: { fillColor: [30, 41, 59], fontSize: 8, fontStyle: 'bold' },
+        styles: { fontSize: 7.5, cellPadding: 1.8 },
+        columnStyles: {
+          0: { width: 50, fontStyle: 'bold' },
+          1: { width: 55 },
+          2: { width: 85 }
+        },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        body: [
+          ["Konsumsi Kopi", `${result.coffee_cups_per_day} Cangkir (${result.coffee_size || 'Sedang'})`, "Ambang batas wajar dewasa: Maksimal 3-4 cangkir/hari"],
+          ["Beban Kafein Harian", `${estimatedMg} mg (${Math.round((estimatedMg / 400) * 100)}% Batas FDA)`, estimatedMg > 400 ? "Melebihi batas aman FDA (400 mg/hari)" : "Berada dalam rentang toleransi aman FDA"],
+          ["Waktu Terakhir Minum", `${sessionTime} WIB`, parseInt((sessionTime || '12').split(':')[0]) >= 18 ? "Perhatian: Sangat dekat jam tidur (< 6 jam sebelum tidur)" : "Waktu cut-off aman terhadap ritme sirkadian"],
+          ["Kondisi Lambung & Makan", mealInfo, result.meal_status === 'belum_makan' ? "Peringatan: Asam HCl naik tajam tanpa perlindungan bolus makanan" : "Aman terlapisi nutrisi makanan"],
+          ["Aktivitas Fisik / Olahraga", exerciseInfo, "Olahraga memobilisasi glikogen otot dan denyut kardiovaskular"],
+          ["Konsumsi Nikotin / Rokok", smokingInfo, result.smoking_intensity && result.smoking_intensity !== 'none' ? "Nikotin menginduksi enzim hati CYP1A2 mempercepat pemecahan kafein" : "Laju degradasi hepatik dalam kisaran normal"],
+          ["Asupan Air Putih", `${waterIntake} ml`, waterIntake >= 2000 ? "Optimal (Standar Kemenkes 8 Gelas)" : waterIntake >= 1500 ? "Cukup" : "Kurang / Dehidrasi (< 1.000 ml)"],
+          ["Durasi & Mutu Tidur", result.sleep_duration ? `${result.sleep_duration} Jam (Mutu: ${result.sleep_quality})` : "Dilewati / Tidak Diisi", "Rekomendasi Kemenkes & AASM: 7-8 jam/malam"],
+          ["Perkiraan Bebas Kafein", safeTimePoint, "Waktu paruh 5 jam; kadar kafein < 50 mg untuk Deep Sleep"]
+        ]
+      });
+
+      // 4. SECTION 2: EVALUASI BEBAN ORGAN FISIOLOGIS (SESI INI)
+      const nextY2 = (doc as any).lastAutoTable.finalY + 4;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("2. Pemetaan Beban Fisiologis Organ Tubuh (Multi-Factorial Scoring)", 15, nextY2);
+
+      const [h] = (sessionTime || '12:00').split(':').map(Number);
+      const isNight = h >= 20;
+      const isLate = h >= 16;
+      const sleepDur = Number(result.sleep_duration) || 7;
+
+      let bLoad = Math.min(100, Math.round((estimatedMg / 400) * 80));
+      if (isNight && estimatedMg > 0) bLoad = Math.min(100, bLoad + 30);
+      else if (isLate && estimatedMg > 0) bLoad = Math.min(100, bLoad + 20);
+      if (sleepDur <= 5 && estimatedMg > 0) bLoad = Math.min(100, bLoad + 20);
+
+      let hLoad = Math.min(100, Math.round((estimatedMg / 400) * 75));
+      if (result.meal_status === 'belum_makan' && estimatedMg > 0) hLoad = Math.min(100, hLoad + 12);
+      if (isNight && estimatedMg > 0) hLoad = Math.min(100, hLoad + 15);
+
+      let sLoad = Math.min(100, Math.round((estimatedMg / 400) * 65));
+      if (result.meal_status === 'belum_makan' && estimatedMg > 0) sLoad = Math.min(100, sLoad + 30);
+
+      let kLoad = Math.min(100, Math.round((estimatedMg / 400) * 60));
+      if (waterIntake < 1000) kLoad = Math.min(100, kLoad + 25);
+      if (sleepDur <= 5 && estimatedMg > 0) kLoad = Math.min(100, kLoad + 15);
+
+      let lLoad = Math.min(100, Math.round((estimatedMg / 400) * 70));
+      if (result.smoking_intensity && result.smoking_intensity !== 'none') lLoad = Math.min(100, lLoad + 20);
+
+      let blLoad = Math.min(100, Math.round((estimatedMg / 400) * 50));
+      if (waterIntake < 1000 && estimatedMg > 0) blLoad = Math.min(100, blLoad + 15);
+      if (isNight && estimatedMg > 150) blLoad = Math.min(100, blLoad + 30);
+
+      let eLoad = Math.min(100, Math.round((estimatedMg / 400) * 35));
+      if (waterIntake < 1000 && estimatedMg > 0) eLoad = Math.min(100, eLoad + 25);
+      if (sleepDur <= 5) eLoad = Math.min(100, eLoad + 25);
+
+      let mLoad = Math.min(100, Math.round((estimatedMg / 400) * 45));
+      if (waterIntake < 1000 && estimatedMg > 0) mLoad = Math.min(100, mLoad + 25);
+      if (sleepDur <= 5 && estimatedMg > 0) mLoad = Math.min(100, mLoad + 20);
+
+      autoTable(doc, {
+        startY: nextY2 + 1.5,
+        head: [["Organ Tubuh", "Beban", "Status", "Keterangan Klinis"]],
+        theme: 'grid',
+        headStyles: { fillColor: [51, 65, 85], fontSize: 8, fontStyle: 'bold' },
+        styles: { fontSize: 7.5, cellPadding: 1.6 },
+        columnStyles: {
+          0: { width: 45, fontStyle: 'bold' },
+          1: { width: 18 },
+          2: { width: 28, fontStyle: 'bold' },
+          3: { width: 99 }
+        },
+        body: [
+          ["Otak & Sistem Saraf", `${bLoad}%`, bLoad >= 70 ? 'Hiperstimulasi' : bLoad >= 40 ? 'Waspada' : 'Optimal', "Blokade reseptor adenosin A1/A2A; menunda kantuk alami & fase tidur dalam"],
+          ["Jantung & Sirkulasi", `${hLoad}%`, hLoad >= 70 ? 'Beban Tinggi' : hLoad >= 40 ? 'Waspada' : 'Stabil', "Pelepasan katekolamin adrenalin; beban kontraktilitas pompa ventrikel"],
+          ["Lambung & Saluran Cerna", `${sLoad}%`, sLoad >= 70 ? 'Iritasi Asam' : sLoad >= 40 ? 'Waspada' : 'Normal', "Sekresi asam lambung HCl berlebih terhadap lapisan mukosa lambung"],
+          ["Ginjal & Keseimbangan Cairan", `${kLoad}%`, kLoad >= 70 ? 'Filtrasi Berat' : kLoad >= 40 ? 'Waspada' : 'Aman', "Diuresis akut; peningkatan ekskresi cairan & ion natrium/kalium"],
+          ["Hati (Enzim CYP1A2)", `${lLoad}%`, lLoad >= 70 ? 'Beban Hepatik' : lLoad >= 40 ? 'Waspada' : 'Normal', "Metabolisme degradasi kafein oleh enzim sitokrom P450 di organ hati"],
+          ["Kandung Kemih", `${blLoad}%`, blLoad >= 70 ? 'Risiko Nokturia' : blLoad >= 40 ? 'Waspada' : 'Normal', "Iritasi urin pekat & dorongan kencing berulang di jam tidur malam"],
+          ["Mata & Saraf Visual", `${eLoad}%`, eLoad >= 70 ? 'Kering / Lelah' : eLoad >= 40 ? 'Waspada' : 'Optimal', "Astenopia otot siliaris kelopak & dehidrasi lapisan air mata (Dry Eye)"],
+          ["Sistem Otot Somatik", `${mLoad}%`, mLoad >= 70 ? 'Ketegangan/Kram' : mLoad >= 40 ? 'Waspada' : 'Relaks', "Deplesi ion elektrolit kalsium/magnesium & keterbatasan pemulihan somatik"]
+        ]
+      });
+
+      // 5. SECTION 3: REKOMENDASI KLINIS & SARAN DOKTER
+      const nextY3 = (doc as any).lastAutoTable.finalY + 4;
+      let targetY = nextY3;
+      if (targetY > pageHeight - 65) {
+        doc.addPage();
+        targetY = 18;
+      }
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("3. Ulasan Klinis & Panduan Pemulihan (Rekomendasi Sistem AI)", 15, targetY);
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
       doc.setTextColor(71, 85, 105);
-      
-      // Clean up markdown hashes and asterisks from AI text for plain text PDF
+
       let cleanAiText = (result.ai_analysis || "Tidak ada evaluasi AI yang tercatat pada sesi ini.")
         .replace(/[*#]/g, '')
         .trim();
         
       const splitAiText = doc.splitTextToSize(cleanAiText, pageWidth - 30);
-      doc.text(splitAiText, 15, 103);
-      
-      // Calculate Y position after AI text
-      const nextY = 103 + (splitAiText.length * 5) + 15;
+      doc.text(splitAiText, 15, targetY + 4);
 
-      // -- SECTION 3: 7 DAY HISTORY TABLE
-      const historyStr = localStorage.getItem('caffisense_assessment_history');
-      let historyList = [];
-      if (historyStr) {
-        try { historyList = JSON.parse(historyStr); } catch {}
-      }
-      
-      if (historyList && Array.isArray(historyList) && historyList.length > 0) {
-        doc.setFontSize(14);
-        doc.setTextColor(15, 23, 42);
-        doc.text("Riwayat Historis (7 Hari Terakhir)", 15, nextY);
-        
-        // Prepare table data
-        const headers = [["Tanggal / Waktu", "Konsumsi Kafein", "Asupan Air", "Pola Tidur"]];
-        const body = historyList.map((h: any) => {
-           const dateStr = (h.assessment_date || h.date || h.created_at || "-").split(' ')[0];
-           return [
-            `${dateStr}\nJam ngopi: ${h.last_coffee_time || "-"}`,
-            `${Math.round(h.estimated_caffeine_mg || 0)} mg\n${h.coffee_cups_per_day} cangkir (${h.coffee_size})`,
-            `${h.water_intake_ml || 1500} ml`,
-            h.sleep_duration ? `${h.sleep_duration} Jam\nMutu: ${h.sleep_quality}` : "-"
-          ]
-        });
+      const nextY4 = targetY + 4 + (splitAiText.length * 3.5) + 6;
 
-        autoTable(doc, {
-          startY: nextY + 5,
-          head: headers,
-          body: body,
-          theme: 'striped',
-          headStyles: { fillColor: [79, 70, 229] }, // Indigo-600
-          styles: { fontSize: 9, cellPadding: 4 },
-        });
+      let sigY = nextY4;
+      if (sigY > pageHeight - 38) {
+        doc.addPage();
+        sigY = 20;
       }
-      
-      doc.save(`CaffiSense_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+
+      // 6. LEMBAR CATATAN KONSULTASI DOKTER & TANDA TANGAN
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(15, sigY, pageWidth - 30, 26, 2, 2);
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("Catatan Dokter / Tenaga Medis Pemeriksa:", 18, sigY + 5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(148, 163, 184);
+      doc.text("..................................................................................................................................................................................................", 18, sigY + 11);
+      doc.text("..................................................................................................................................................................................................", 18, sigY + 16);
+
+      doc.setFontSize(7.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text("Tanda Tangan & Stempel Faskes: ___________________________", pageWidth - 100, sigY + 22);
+
+      // Disclaimer Footer
+      doc.setFontSize(6.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text(
+        "* Dokumen ini diterbitkan oleh CaffiSense sebagai instrumen skrining farmakokinetik harian untuk bahan konsultasi bersama dokter/ahli kesehatan profesional.",
+        pageWidth / 2,
+        pageHeight - 5,
+        { align: 'center' }
+      );
+
+      doc.save(`CaffiSense_LaporanMedis_${sessionDate}.pdf`);
     } catch (err: any) {
       console.error(err);
       alert("Gagal mengekspor PDF: " + (err.message || err));
@@ -277,43 +396,17 @@ export default function InsightsPage() {
         
         {/* ─── TOP STATUS BANNER & EXPORT (Clean Modern Health-Tech Aesthetic) ─── */}
         <div className="bg-white rounded-2xl p-6 sm:p-7 shadow-xs border border-gray-200/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-1.5 flex-1">
-            <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                  Hasil Skrining Harian
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
-                  Sirkadian & Metabolisme
-                </span>
-              </div>
-              
-              {/* Desktop Export Menu */}
-              <div className="hidden md:flex relative">
-                <button
-                  onClick={() => setShowExportMenu(!showExportMenu)}
-                  disabled={isExporting}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl font-bold text-sm hover:bg-indigo-100 transition-colors border border-indigo-100 shadow-2xs disabled:opacity-50"
-                >
-                  {isExporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                  Ekspor Laporan
-                </button>
-                {showExportMenu && (
-                  <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 overflow-hidden">
-                    <button onClick={handleExportPDF} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-rose-500" />
-                      Unduh PDF
-                    </button>
-                    <button onClick={handleExportCSV} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                      <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-                      Unduh CSV (Riwayat)
-                    </button>
-                  </div>
-                )}
-              </div>
+          <div className="space-y-2 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                Hasil Skrining Harian
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                Sirkadian & Metabolisme
+              </span>
             </div>
             
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight mt-2">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
               Potensi Pengaruh Kafein pada Kualitas Tidur
             </h2>
             <p className="text-xs sm:text-sm text-gray-500 max-w-xl leading-relaxed">
@@ -321,48 +414,69 @@ export default function InsightsPage() {
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-3 shrink-0 w-full md:w-auto">
-            {/* Mobile Export Menu */}
-            <div className="md:hidden flex relative w-full mb-2">
-              <button
-                onClick={() => setShowExportMenu(!showExportMenu)}
-                disabled={isExporting}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl font-bold text-sm hover:bg-indigo-100 transition-colors border border-indigo-100 shadow-2xs disabled:opacity-50 w-full"
-              >
-                {isExporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                Ekspor Laporan
-              </button>
-              {showExportMenu && (
-                <div className="absolute top-full right-0 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 overflow-hidden">
-                  <button onClick={handleExportPDF} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-rose-500" />
-                    Unduh PDF
-                  </button>
-                  <button onClick={handleExportCSV} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                    <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-                    Unduh CSV (Riwayat)
-                  </button>
-                </div>
-              )}
+          <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-2.5 shrink-0 w-full md:w-auto">
+            {/* Action Buttons: Status Badge & Export Report */}
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              
+              {/* Export Dropdown Menu */}
+              <div className="relative flex-1 md:flex-initial">
+                <button
+                  type="button"
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  disabled={isExporting}
+                  className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 text-gray-700 rounded-xl font-bold text-xs transition border border-gray-200 shadow-2xs disabled:opacity-50 cursor-pointer"
+                >
+                  {isExporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5 text-indigo-600" />}
+                  <span>Ekspor Laporan (PDF)</span>
+                </button>
+                {showExportMenu && (
+                  <div className="absolute top-full right-0 mt-1.5 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 overflow-hidden">
+                    <button 
+                      type="button"
+                      onClick={handleExportPDF} 
+                      className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <div>
+                        <div className="font-bold text-gray-900">Laporan Medis (PDF)</div>
+                        <div className="text-[10px] text-gray-400">Ringkasan Sesi Hari Ini untuk Dokter</div>
+                      </div>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={handleExportCSV} 
+                      className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 cursor-pointer border-t border-gray-50"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <div>
+                        <div className="font-bold text-gray-900">Unduh Tabel Riwayat (CSV)</div>
+                        <div className="text-[10px] text-gray-400">Data mentah untuk spreadsheet</div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Status Badge */}
+              <div className={`px-4 py-2.5 rounded-xl font-bold text-xs tracking-wide flex items-center gap-2 border shadow-2xs shrink-0 ${
+                isHighImpact 
+                  ? 'bg-rose-50 text-rose-700 border-rose-200' 
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              }`}>
+                {isHighImpact ? (
+                  <>
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                    <span>Potensi Gangguan Tinggi</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Kondisi Aman / Optimal</span>
+                  </>
+                )}
+              </div>
             </div>
 
-            <div className={`px-5 py-2.5 rounded-xl font-bold text-sm tracking-wide flex items-center gap-2 border shadow-2xs w-full md:w-auto ${
-              isHighImpact 
-                ? 'bg-rose-50 text-rose-700 border-rose-200' 
-                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-            }`}>
-              {isHighImpact ? (
-                <>
-                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>Potensi Gangguan Tinggi</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Kondisi Aman / Optimal</span>
-                </>
-              )}
-            </div>
             <span className="text-[11px] text-gray-400 font-medium">
               {isHighImpact ? 'Disarankan memajukan jam ngopi' : 'Ritme tidur dalam ambang aman'}
             </span>
