@@ -202,10 +202,10 @@ export default function InsightsPage() {
         theme: 'plain',
         styles: { fontSize: 8, cellPadding: 1.2, textColor: [30, 41, 59] },
         columnStyles: {
-          0: { fontStyle: 'bold', width: 30 },
-          1: { width: 62 },
-          2: { fontStyle: 'bold', width: 32 },
-          3: { width: 63 }
+          0: { fontStyle: 'bold', cellWidth: 30 },
+          1: { cellWidth: 62 },
+          2: { fontStyle: 'bold', cellWidth: 32 },
+          3: { cellWidth: 63 }
         },
         body: [
           ["Nama Pasien / User:", `${user?.name || 'Pasien CaffiSense'}`, "Tanggal Pemeriksaan:", `${sessionDate}`],
@@ -228,9 +228,9 @@ export default function InsightsPage() {
         headStyles: { fillColor: [30, 41, 59], fontSize: 8, fontStyle: 'bold' },
         styles: { fontSize: 7.5, cellPadding: 1.8 },
         columnStyles: {
-          0: { width: 50, fontStyle: 'bold' },
-          1: { width: 55 },
-          2: { width: 85 }
+          0: { cellWidth: 50, fontStyle: 'bold' },
+          1: { cellWidth: 55 },
+          2: { cellWidth: 85 }
         },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         body: [
@@ -296,10 +296,10 @@ export default function InsightsPage() {
         headStyles: { fillColor: [51, 65, 85], fontSize: 8, fontStyle: 'bold' },
         styles: { fontSize: 7.5, cellPadding: 1.6 },
         columnStyles: {
-          0: { width: 45, fontStyle: 'bold' },
-          1: { width: 18 },
-          2: { width: 28, fontStyle: 'bold' },
-          3: { width: 99 }
+          0: { cellWidth: 45, fontStyle: 'bold' },
+          1: { cellWidth: 18 },
+          2: { cellWidth: 28, fontStyle: 'bold' },
+          3: { cellWidth: 99 }
         },
         body: [
           ["Otak & Sistem Saraf", `${bLoad}%`, bLoad >= 70 ? 'Hiperstimulasi' : bLoad >= 40 ? 'Waspada' : 'Optimal', "Blokade reseptor adenosin A1/A2A; menunda kantuk alami & fase tidur dalam"],
