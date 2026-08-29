@@ -21,6 +21,7 @@ interface OrganImpactProps {
   caffeineMg?: number;
   lastCoffeeTime?: string;
   waterIntakeMl?: number;
+  sleepDuration?: number;
   mealStatus?: string;
   exerciseTiming?: string;
   exerciseDurationMinutes?: number;
@@ -50,6 +51,7 @@ export default function OrganImpactMatrix({
   caffeineMg = 0,
   lastCoffeeTime = '15:00',
   waterIntakeMl = 1500,
+  sleepDuration = 7,
   mealStatus = 'sudah_makan',
   exerciseTiming = 'tidak_olahraga',
   exerciseDurationMinutes = 0,
@@ -107,10 +109,13 @@ export default function OrganImpactMatrix({
     
     // 1. Brain & Nervous System
     const [h] = (lastCoffeeTime || '12:00').split(':').map(Number);
-    const isLateCoffee = h >= 16; // 4 PM or later increases nocturnal brain load
+    const isLateCoffee = h >= 16; // 4 PM or later
+    const isNightCoffee = h >= 20; // 8 PM or later (larut malam)
     
     let brainLoad = Math.min(100, Math.round((caffeineMg / 400) * 80));
-    if (isLateCoffee && caffeineMg > 0) brainLoad = Math.min(100, brainLoad + 20);
+    if (isNightCoffee && caffeineMg > 0) brainLoad = Math.min(100, brainLoad + 30);
+    else if (isLateCoffee && caffeineMg > 0) brainLoad = Math.min(100, brainLoad + 20);
+    if (sleepDuration <= 5 && caffeineMg > 0) brainLoad = Math.min(100, brainLoad + 20); // Kurang tidur memperlambat klirens adenosin
     if (hasBrainSymptoms) brainLoad = Math.max(75, brainLoad + 25);
     if (caffeineMg === 0 && !hasBrainSymptoms) brainLoad = 0;
 
@@ -121,6 +126,7 @@ export default function OrganImpactMatrix({
     let heartLoad = Math.min(100, Math.round((caffeineMg / 400) * 75));
     if (mealStatus === 'belum_makan' && caffeineMg > 0) heartLoad = Math.min(100, heartLoad + 12);
     if (smokingIntensity !== 'none' && caffeineMg > 0) heartLoad = Math.min(100, heartLoad + 15);
+    if (isNightCoffee && caffeineMg > 0) heartLoad = Math.min(100, heartLoad + 15);
     if (hasHeartSymptoms) heartLoad = Math.max(75, heartLoad + 30);
     if (caffeineMg === 0 && !hasHeartSymptoms) heartLoad = 0;
 
@@ -145,6 +151,7 @@ export default function OrganImpactMatrix({
     let kidneyLoad = Math.min(100, Math.round((caffeineMg / 400) * 60));
     if (waterIntakeMl < 1000) kidneyLoad = Math.min(100, kidneyLoad + 25);
     else if (waterIntakeMl >= 2000) kidneyLoad = Math.max(10, kidneyLoad - 15);
+    if (sleepDuration <= 5 && caffeineMg > 0) kidneyLoad = Math.min(100, kidneyLoad + 15);
     if (caffeineMg === 0 && waterIntakeMl >= 1500) kidneyLoad = 0;
     const kidneyStatus: 'safe' | 'warning' | 'danger' = 
       kidneyLoad >= 70 ? 'danger' : kidneyLoad >= 40 ? 'warning' : 'safe';
@@ -160,12 +167,16 @@ export default function OrganImpactMatrix({
 
     // 6. Intestine (Usus)
     let intestineLoad = Math.min(100, Math.round((caffeineMg / 400) * 50));
+    if (waterIntakeMl < 1000 && caffeineMg > 0) intestineLoad = Math.min(100, intestineLoad + 20); // Dehidrasi mengganggu motilitas & mukosa usus
+    if (caffeineMg >= 300) intestineLoad = Math.min(100, intestineLoad + 15); // Dosis tinggi memicu spasme peristaltik
     if (hasIntestineSymptoms) intestineLoad = Math.max(75, intestineLoad + 30);
     if (caffeineMg === 0 && !hasIntestineSymptoms) intestineLoad = 0;
     const intestineStatus: 'safe' | 'warning' | 'danger' = intestineLoad >= 70 ? 'danger' : intestineLoad >= 40 ? 'warning' : 'safe';
 
     // 7. Muscle (Otot)
     let muscleLoad = Math.min(100, Math.round((caffeineMg / 400) * 45));
+    if (waterIntakeMl < 1000 && caffeineMg > 0) muscleLoad = Math.min(100, muscleLoad + 25); // Deplesi cairan & elektrolit memicu kram/tremor
+    if (sleepDuration <= 5 && caffeineMg > 0) muscleLoad = Math.min(100, muscleLoad + 20); // Kegagalan fase deep sleep untuk pemulihan otot
     if (exerciseTiming === 'sebelum_kopi' && exerciseDurationMinutes >= 30) {
       muscleLoad = Math.max(10, muscleLoad - 15); // Pre-workout improves muscular glycogen mobilization
     }
@@ -175,7 +186,9 @@ export default function OrganImpactMatrix({
 
     // 8. Bladder (Kandung Kemih)
     let bladderLoad = Math.min(100, Math.round((caffeineMg / 400) * 50));
-    if (waterIntakeMl < 1000) bladderLoad = Math.min(100, bladderLoad + 15);
+    if (waterIntakeMl < 1000 && caffeineMg > 0) bladderLoad = Math.min(100, bladderLoad + 15); // Konsentrasi asam urin tinggi
+    if (isNightCoffee && caffeineMg > 150) bladderLoad = Math.min(100, bladderLoad + 30); // Nokturia parah (terbangun kencing di jam tidur)
+    else if (isLateCoffee && caffeineMg > 150) bladderLoad = Math.min(100, bladderLoad + 15);
     if (hasBladderSymptoms) bladderLoad = Math.max(75, bladderLoad + 25);
     if (caffeineMg === 0 && !hasBladderSymptoms) bladderLoad = 0;
     const bladderStatus: 'safe' | 'warning' | 'danger' = bladderLoad >= 70 ? 'danger' : bladderLoad >= 40 ? 'warning' : 'safe';
@@ -194,14 +207,19 @@ export default function OrganImpactMatrix({
     const lungsStatus: 'safe' | 'warning' | 'danger' = lungsLoad >= 70 ? 'danger' : lungsLoad >= 40 ? 'warning' : 'safe';
 
     // 10. Eye (Mata)
-    let eyeLoad = Math.min(100, Math.round((caffeineMg / 400) * 30));
+    let eyeLoad = Math.min(100, Math.round((caffeineMg / 400) * 35));
+    if (waterIntakeMl < 1000 && caffeineMg > 0) eyeLoad = Math.min(100, eyeLoad + 25); // Mata kering (Dry Eye Syndrome) akibat dehidrasi
+    if (sleepDuration <= 5) eyeLoad = Math.min(100, eyeLoad + 25); // Kelelahan otot siliaris/astenopia & tekanan intraokular
+    if (isNightCoffee && caffeineMg > 0) eyeLoad = Math.min(100, eyeLoad + 15); // Midriasis pupil larut malam
     if (hasEyeSymptoms) eyeLoad = Math.max(65, eyeLoad + 30);
-    if (caffeineMg === 0 && !hasEyeSymptoms) eyeLoad = 0;
+    if (caffeineMg === 0 && !hasEyeSymptoms && sleepDuration >= 7 && waterIntakeMl >= 1500) eyeLoad = 0;
     const eyeStatus: 'safe' | 'warning' | 'danger' = eyeLoad >= 70 ? 'danger' : eyeLoad >= 40 ? 'warning' : 'safe';
 
     // 11. Adrenal Glands (Kelenjar Adrenal)
     let adrenalLoad = Math.min(100, Math.round((caffeineMg / 400) * 70));
     if (mealStatus === 'belum_makan' && caffeineMg > 0) adrenalLoad = Math.min(100, adrenalLoad + 10);
+    if (sleepDuration <= 5 && caffeineMg > 0) adrenalLoad = Math.min(100, adrenalLoad + 15); // Disregulasi sumbu HPA & lonjakan kortisol malam
+    if (isNightCoffee && caffeineMg > 0) adrenalLoad = Math.min(100, adrenalLoad + 15);
     if (hasAdrenalSymptoms) adrenalLoad = Math.max(75, adrenalLoad + 30);
     if (caffeineMg === 0 && !hasAdrenalSymptoms) adrenalLoad = 0;
     const adrenalStatus: 'safe' | 'warning' | 'danger' = adrenalLoad >= 70 ? 'danger' : adrenalLoad >= 40 ? 'warning' : 'safe';

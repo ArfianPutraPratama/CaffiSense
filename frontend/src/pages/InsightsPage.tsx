@@ -567,6 +567,7 @@ export default function InsightsPage() {
           caffeineMg={result.estimated_caffeine_mg || 0}
           lastCoffeeTime={result.last_coffee_time || '15:00'}
           waterIntakeMl={result.water_intake_ml || 1500}
+          sleepDuration={result.sleep_duration ? Number(result.sleep_duration) : 7}
           mealStatus={result.meal_status || 'sudah_makan'}
           exerciseTiming={result.exercise_timing || 'tidak_olahraga'}
           exerciseDurationMinutes={result.exercise_duration_minutes || 0}
