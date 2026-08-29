@@ -165,27 +165,32 @@ export default function InsightsPage() {
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       
-      // 1. Official Medical Header Banner (Dark Navy)
-      doc.setFillColor(15, 23, 42); // Slate-900
-      doc.rect(0, 0, pageWidth, 26, 'F');
+      // Format clean date in Indonesian
+      let formattedDate = 'Hari Ini';
+      try {
+        const rawDate = result.assessment_date || result.date || result.created_at;
+        if (rawDate) {
+          const d = new Date(rawDate);
+          if (!isNaN(d.getTime())) {
+            formattedDate = d.toLocaleDateString('id-ID', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric'
+            });
+          } else {
+            formattedDate = String(rawDate).split('T')[0];
+          }
+        }
+      } catch {
+        formattedDate = new Date().toLocaleDateString('id-ID');
+      }
 
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(255, 255, 255);
-      doc.text("CAFFISENSE - LEMBAR KONSULTASI MEDIS HARIAN", 15, 11);
+      const rawTime = result.last_coffee_time || '15:00';
+      const cleanTime = rawTime.includes(':') 
+        ? rawTime.split(':').slice(0, 2).join(':') + ' WIB' 
+        : rawTime + ' WIB';
 
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(203, 213, 225);
-      doc.text("Laporan Evaluasi Beban Farmakokinetik Kafein & Ritme Sirkadian Tubuh untuk Dokter / Tenaga Medis", 15, 17);
-
-      // System Accent Dot
-      doc.setFillColor(249, 115, 22); // Orange-500
-      doc.circle(pageWidth - 16, 13, 2.5, 'F');
-
-      // 2. Metadata Box Sesi Hari Ini
-      const sessionDate = result.assessment_date || result.date || (result.created_at ? result.created_at.split(' ')[0] : new Date().toISOString().split('T')[0]);
-      const sessionTime = result.last_coffee_time || '15:00';
       const estimatedMg = Math.round(result.estimated_caffeine_mg || 0);
       const waterIntake = result.water_intake_ml || 1500;
       const mealInfo = result.meal_status === 'belum_makan' ? 'Perut Kosong (Belum Makan)' : `Sudah Makan (${result.last_meal_time || '12:30'})`;
@@ -197,26 +202,46 @@ export default function InsightsPage() {
         : `Merokok: ${result.smoking_intensity} Batang/Hari`;
       const isHighImpact = result.ml_prediction === 1;
 
+      // ─── HALAMAN 1: DATA PARAMETER & PEMETAAN BEBAN ORGAN ───
+      // 1. Official Medical Header Banner (Dark Navy)
+      doc.setFillColor(15, 23, 42); // Slate-900
+      doc.rect(0, 0, pageWidth, 25, 'F');
+
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text("CAFFISENSE - LEMBAR KONSULTASI MEDIS HARIAN", 15, 11);
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(203, 213, 225);
+      doc.text("Laporan Evaluasi Beban Farmakokinetik Kafein & Ritme Sirkadian Tubuh untuk Dokter / Tenaga Medis", 15, 17);
+
+      // System Accent Dot
+      doc.setFillColor(249, 115, 22); // Orange-500
+      doc.circle(pageWidth - 16, 12.5, 2.5, 'F');
+
+      // 2. Metadata Box Sesi Hari Ini
       autoTable(doc, {
-        startY: 29,
+        startY: 28,
         theme: 'plain',
-        styles: { fontSize: 8, cellPadding: 1.2, textColor: [30, 41, 59] },
+        styles: { fontSize: 8, cellPadding: 1.1, textColor: [30, 41, 59] },
         columnStyles: {
-          0: { fontStyle: 'bold', cellWidth: 30 },
+          0: { fontStyle: 'bold', cellWidth: 32 },
           1: { cellWidth: 62 },
           2: { fontStyle: 'bold', cellWidth: 32 },
-          3: { cellWidth: 63 }
+          3: { cellWidth: 60 }
         },
         body: [
-          ["Nama Pasien / User:", `${user?.name || 'Pasien CaffiSense'}`, "Tanggal Pemeriksaan:", `${sessionDate}`],
-          ["Email / Kontak:", `${user?.email || 'Konsultasi Mandiri'}`, "Jam Sesi Terakhir:", `${sessionTime} WIB`],
+          ["Nama Pasien / User:", `${user?.name || 'Pasien CaffiSense'}`, "Tanggal Pemeriksaan:", `${formattedDate}`],
+          ["Email / Kontak:", `${user?.email || 'Konsultasi Mandiri'}`, "Jam Sesi Terakhir:", `${cleanTime}`],
           ["Status Risiko Sirkadian:", isHighImpact ? "TINGGI (Beresiko Disrupsi Tidur)" : "OPTIMAL / AMAN", "Total Kafein Terdeteksi:", `${estimatedMg} mg (${Math.round((estimatedMg / 400) * 100)}% Batas FDA)`]
         ]
       });
 
       // 3. SECTION 1: TABEL PARAMETER VITAL KONSUMSI SESI INI
-      const nextY1 = (doc as any).lastAutoTable.finalY + 3.5;
-      doc.setFontSize(10);
+      const nextY1 = (doc as any).lastAutoTable.finalY + 3;
+      doc.setFontSize(9.5);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(15, 23, 42);
       doc.text("1. Data Parameter Kebiasaan Harian (Sesi Ini)", 15, nextY1);
@@ -226,17 +251,17 @@ export default function InsightsPage() {
         head: [["Parameter Pemeriksaan", "Hasil Input Pasien", "Interpretasi & Standar Klinis"]],
         theme: 'grid',
         headStyles: { fillColor: [30, 41, 59], fontSize: 8, fontStyle: 'bold' },
-        styles: { fontSize: 7.5, cellPadding: 1.8 },
+        styles: { fontSize: 7.3, cellPadding: 1.5 },
         columnStyles: {
-          0: { cellWidth: 50, fontStyle: 'bold' },
-          1: { cellWidth: 55 },
-          2: { cellWidth: 85 }
+          0: { cellWidth: 48, fontStyle: 'bold' },
+          1: { cellWidth: 54 },
+          2: { cellWidth: 88 }
         },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         body: [
           ["Konsumsi Kopi", `${result.coffee_cups_per_day} Cangkir (${result.coffee_size || 'Sedang'})`, "Ambang batas wajar dewasa: Maksimal 3-4 cangkir/hari"],
           ["Beban Kafein Harian", `${estimatedMg} mg (${Math.round((estimatedMg / 400) * 100)}% Batas FDA)`, estimatedMg > 400 ? "Melebihi batas aman FDA (400 mg/hari)" : "Berada dalam rentang toleransi aman FDA"],
-          ["Waktu Terakhir Minum", `${sessionTime} WIB`, parseInt((sessionTime || '12').split(':')[0]) >= 18 ? "Perhatian: Sangat dekat jam tidur (< 6 jam sebelum tidur)" : "Waktu cut-off aman terhadap ritme sirkadian"],
+          ["Waktu Terakhir Minum", `${cleanTime}`, parseInt((rawTime || '12').split(':')[0]) >= 18 ? "Perhatian: Sangat dekat jam tidur (< 6 jam sebelum tidur)" : "Waktu cut-off aman terhadap ritme sirkadian"],
           ["Kondisi Lambung & Makan", mealInfo, result.meal_status === 'belum_makan' ? "Peringatan: Asam HCl naik tajam tanpa perlindungan bolus makanan" : "Aman terlapisi nutrisi makanan"],
           ["Aktivitas Fisik / Olahraga", exerciseInfo, "Olahraga memobilisasi glikogen otot dan denyut kardiovaskular"],
           ["Konsumsi Nikotin / Rokok", smokingInfo, result.smoking_intensity && result.smoking_intensity !== 'none' ? "Nikotin menginduksi enzim hati CYP1A2 mempercepat pemecahan kafein" : "Laju degradasi hepatik dalam kisaran normal"],
@@ -247,13 +272,13 @@ export default function InsightsPage() {
       });
 
       // 4. SECTION 2: EVALUASI BEBAN ORGAN FISIOLOGIS (SESI INI)
-      const nextY2 = (doc as any).lastAutoTable.finalY + 4;
-      doc.setFontSize(10);
+      const nextY2 = (doc as any).lastAutoTable.finalY + 3;
+      doc.setFontSize(9.5);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(15, 23, 42);
       doc.text("2. Pemetaan Beban Fisiologis Organ Tubuh (Multi-Factorial Scoring)", 15, nextY2);
 
-      const [h] = (sessionTime || '12:00').split(':').map(Number);
+      const [h] = (rawTime || '12:00').split(':').map(Number);
       const isNight = h >= 20;
       const isLate = h >= 16;
       const sleepDur = Number(result.sleep_duration) || 7;
@@ -294,18 +319,18 @@ export default function InsightsPage() {
         head: [["Organ Tubuh", "Beban", "Status", "Keterangan Klinis"]],
         theme: 'grid',
         headStyles: { fillColor: [51, 65, 85], fontSize: 8, fontStyle: 'bold' },
-        styles: { fontSize: 7.5, cellPadding: 1.6 },
+        styles: { fontSize: 7.3, cellPadding: 1.4 },
         columnStyles: {
-          0: { cellWidth: 45, fontStyle: 'bold' },
+          0: { cellWidth: 46, fontStyle: 'bold' },
           1: { cellWidth: 18 },
           2: { cellWidth: 28, fontStyle: 'bold' },
-          3: { cellWidth: 99 }
+          3: { cellWidth: 98 }
         },
         body: [
           ["Otak & Sistem Saraf", `${bLoad}%`, bLoad >= 70 ? 'Hiperstimulasi' : bLoad >= 40 ? 'Waspada' : 'Optimal', "Blokade reseptor adenosin A1/A2A; menunda kantuk alami & fase tidur dalam"],
           ["Jantung & Sirkulasi", `${hLoad}%`, hLoad >= 70 ? 'Beban Tinggi' : hLoad >= 40 ? 'Waspada' : 'Stabil', "Pelepasan katekolamin adrenalin; beban kontraktilitas pompa ventrikel"],
           ["Lambung & Saluran Cerna", `${sLoad}%`, sLoad >= 70 ? 'Iritasi Asam' : sLoad >= 40 ? 'Waspada' : 'Normal', "Sekresi asam lambung HCl berlebih terhadap lapisan mukosa lambung"],
-          ["Ginjal & Keseimbangan Cairan", `${kLoad}%`, kLoad >= 70 ? 'Filtrasi Berat' : kLoad >= 40 ? 'Waspada' : 'Aman', "Diuresis akut; peningkatan ekskresi cairan & ion natrium/kalium"],
+          ["Ginjal & Cairan", `${kLoad}%`, kLoad >= 70 ? 'Filtrasi Berat' : kLoad >= 40 ? 'Waspada' : 'Aman', "Diuresis akut; peningkatan ekskresi cairan & ion natrium/kalium"],
           ["Hati (Enzim CYP1A2)", `${lLoad}%`, lLoad >= 70 ? 'Beban Hepatik' : lLoad >= 40 ? 'Waspada' : 'Normal', "Metabolisme degradasi kafein oleh enzim sitokrom P450 di organ hati"],
           ["Kandung Kemih", `${blLoad}%`, blLoad >= 70 ? 'Risiko Nokturia' : blLoad >= 40 ? 'Waspada' : 'Normal', "Iritasi urin pekat & dorongan kencing berulang di jam tidur malam"],
           ["Mata & Saraf Visual", `${eLoad}%`, eLoad >= 70 ? 'Kering / Lelah' : eLoad >= 40 ? 'Waspada' : 'Optimal', "Astenopia otot siliaris kelopak & dehidrasi lapisan air mata (Dry Eye)"],
@@ -313,59 +338,119 @@ export default function InsightsPage() {
         ]
       });
 
-      // 5. SECTION 3: REKOMENDASI KLINIS & SARAN DOKTER
-      const nextY3 = (doc as any).lastAutoTable.finalY + 4;
-      let targetY = nextY3;
-      if (targetY > pageHeight - 65) {
-        doc.addPage();
-        targetY = 18;
-      }
-
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 23, 42);
-      doc.text("3. Ulasan Klinis & Panduan Pemulihan (Rekomendasi Sistem AI)", 15, targetY);
-
-      doc.setFontSize(7.5);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(71, 85, 105);
-
-      let cleanAiText = (result.ai_analysis || "Tidak ada evaluasi AI yang tercatat pada sesi ini.")
-        .replace(/[*#]/g, '')
-        .trim();
-        
-      const splitAiText = doc.splitTextToSize(cleanAiText, pageWidth - 30);
-      doc.text(splitAiText, 15, targetY + 4);
-
-      const nextY4 = targetY + 4 + (splitAiText.length * 3.5) + 6;
-
-      let sigY = nextY4;
-      if (sigY > pageHeight - 38) {
-        doc.addPage();
-        sigY = 20;
-      }
-
-      // 6. LEMBAR CATATAN KONSULTASI DOKTER & TANDA TANGAN
-      doc.setDrawColor(203, 213, 225);
+      // 5. QUICK CLINICAL FINDINGS BOX ON PAGE 1
+      const sumBoxY = (doc as any).lastAutoTable.finalY + 4;
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
       doc.setLineWidth(0.4);
-      doc.roundedRect(15, sigY, pageWidth - 30, 26, 2, 2);
+      doc.roundedRect(15, sumBoxY, pageWidth - 30, 28, 2, 2, 'FD');
 
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(15, 23, 42);
-      doc.text("Catatan Dokter / Tenaga Medis Pemeriksa:", 18, sigY + 5);
+      doc.text("Ringkasan Temuan Klinis Utama (Sesi Hari Ini):", 18, sumBoxY + 5);
+
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+
+      doc.text(`• Beban Kafein: ${estimatedMg} mg (${Math.round((estimatedMg / 400) * 100)}% dari Batas FDA 400 mg) ${estimatedMg > 400 ? '— Melebihi ambang batas toleransi harian.' : '— Berada dalam batas aman.'}`, 18, sumBoxY + 10.5);
+      doc.text(`• Waktu Konsumsi: Sesi terakhir pukul ${cleanTime}. Perkiraan tubuh bebas kafein (<50 mg): ${safeTimePoint}.`, 18, sumBoxY + 15);
+      doc.text(`• Status Hidrasi: Asupan air ${waterIntake} ml ${waterIntake < 1000 ? '(Dehidrasi berat — beban filtrasi ginjal & mata meningkat signifikan).' : '(Hidrasi tercukupi).' }`, 18, sumBoxY + 19.5);
+      doc.text(`• Pola Istirahat: Tidur ${result.sleep_duration ? `${result.sleep_duration} Jam (${result.sleep_quality})` : 'tidak dicatat'} ${Number(result.sleep_duration) <= 5 ? '— defisit tidur akut menghambat fase Slow-Wave Sleep.' : ''}`, 18, sumBoxY + 24);
+
+      // Page 1 Transition Notice
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(79, 70, 229); // Indigo-600
+      doc.text("Bersambung ke Halaman 2: Ulasan Lengkap AI & Lembar Catatan/Validasi Dokter  →", pageWidth / 2, sumBoxY + 34, { align: 'center' });
+
+      // Page 1 Footer
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(148, 163, 184);
+      doc.text("CaffiSense Clinical Health Summary  |  Halaman 1 dari 2", pageWidth / 2, pageHeight - 5, { align: 'center' });
+
+
+      // ─── HALAMAN 2: ULASAN KLINIS AI & LEMBAR VALIDASI DOKTER ───
+      doc.addPage();
+
+      // Header Bar Page 2 (Slate-900)
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, pageWidth, 15, 'F');
+
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text("CAFFISENSE - EVALUASI MEDIS & LEMBAR VALIDASI KONSULTASI", 15, 10);
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(203, 213, 225);
+      doc.text(`Pasien: ${user?.name || 'Pasien CaffiSense'}   |   Tanggal: ${formattedDate}   |   ${cleanTime}`, pageWidth - 15, 10, { align: 'right' });
+
+      // Section 3: Ulasan Klinis AI (Multi-Line Paginator)
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("3. Ulasan Klinis & Panduan Pemulihan (Rekomendasi Sistem AI)", 15, 23);
+
+      doc.setFontSize(7.2);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(51, 65, 85);
+
+      let cleanAiText = (result.ai_analysis || "Tidak ada evaluasi AI yang tercatat pada sesi ini.")
+        .replace(/[*#]/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+        
+      const aiLines = doc.splitTextToSize(cleanAiText, pageWidth - 30);
+      let currentY = 28;
+      const maxTextY = pageHeight - 45; // Space for Doctor's Signature Box (32mm) + Margin
+
+      for (let i = 0; i < aiLines.length; i++) {
+        if (currentY > maxTextY) {
+          doc.addPage();
+          doc.setFillColor(15, 23, 42);
+          doc.rect(0, 0, pageWidth, 15, 'F');
+          doc.setFontSize(9.5);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(255, 255, 255);
+          doc.text("CAFFISENSE - EVALUASI MEDIS (LANJUTAN)", 15, 10);
+          currentY = 22;
+          doc.setFontSize(7.2);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(51, 65, 85);
+        }
+        doc.text(aiLines[i], 15, currentY);
+        currentY += 3.4;
+      }
+
+      // LEMBAR CATATAN KONSULTASI DOKTER & TANDA TANGAN (Anchored at Bottom)
+      const sigBoxY = Math.max(currentY + 4, pageHeight - 42);
+
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.4);
+      doc.setFillColor(250, 250, 250);
+      doc.roundedRect(15, sigBoxY, pageWidth - 30, 26, 2, 2, 'FD');
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("Catatan Dokter / Tenaga Medis Pemeriksa:", 18, sigBoxY + 5);
 
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(148, 163, 184);
-      doc.text("..................................................................................................................................................................................................", 18, sigY + 11);
-      doc.text("..................................................................................................................................................................................................", 18, sigY + 16);
+      doc.text("..................................................................................................................................................................................................", 18, sigBoxY + 11);
+      doc.text("..................................................................................................................................................................................................", 18, sigBoxY + 16);
 
-      doc.setFontSize(7.5);
+      doc.setFontSize(7);
       doc.setTextColor(71, 85, 105);
-      doc.text("Tanda Tangan & Stempel Faskes: ___________________________", pageWidth - 100, sigY + 22);
+      doc.text("Tanggal Konsultasi: .......................................", 18, sigBoxY + 22);
+      doc.text("Tanda Tangan & Stempel Faskes: ___________________________", pageWidth - 98, sigBoxY + 22);
 
-      // Disclaimer Footer
-      doc.setFontSize(6.5);
+      // Disclaimer Footer Page 2
+      doc.setFontSize(6.2);
       doc.setTextColor(148, 163, 184);
       doc.text(
         "* Dokumen ini diterbitkan oleh CaffiSense sebagai instrumen skrining farmakokinetik harian untuk bahan konsultasi bersama dokter/ahli kesehatan profesional.",
@@ -373,8 +458,9 @@ export default function InsightsPage() {
         pageHeight - 5,
         { align: 'center' }
       );
+      doc.text("Halaman 2 dari 2", pageWidth - 15, pageHeight - 5, { align: 'right' });
 
-      doc.save(`CaffiSense_LaporanMedis_${sessionDate}.pdf`);
+      doc.save(`CaffiSense_LaporanMedis_${(result.created_at || new Date().toISOString()).split('T')[0]}.pdf`);
     } catch (err: any) {
       console.error(err);
       alert("Gagal mengekspor PDF: " + (err.message || err));
