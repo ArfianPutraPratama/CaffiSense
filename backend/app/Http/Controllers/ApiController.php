@@ -265,14 +265,14 @@ class ApiController extends Controller
             return response()->json(['assessment' => null, 'message' => 'No assessment found'], 404);
         }
 
-        // If ai_analysis is missing, generate on the fly
-        if (empty($latest->ai_analysis)) {
+        // If ai_analysis is missing or failed previously, generate on the fly
+        if (empty($latest->ai_analysis) || str_contains($latest->ai_analysis, 'gangguan koneksi')) {
             $geminiKey = env('GEMINI_API_KEY');
             if ($geminiKey) {
                 $impactText = $latest->ml_prediction == 1 ? 'TINGGI' : 'RENDAH';
                 $prompt = "Sebagai pakar gaya hidup sehat, berikan ulasan komprehensif untuk seseorang yang minum {$latest->coffee_cups_per_day} gelas kopi (estimasi " . round($latest->estimated_caffeine_mg) . " mg kafein/hari) dengan potensi gangguan tidur {$impactText}.\n\nBerikan ulasanmu dalam 4 bagian menggunakan format Markdown:\n1. **Analisis Pola Saat Ini**\n2. **Potensi Risiko Jangka Panjang**\n3. **Statistik Risiko Penyakit (Edukasi)**\n4. **Saran Pemulihan Praktis**";
                 try {
-                    $geminiRes = Http::timeout(30)->withHeaders(['Content-Type' => 'application/json'])
+                    $geminiRes = Http::timeout(30)->withOptions(['verify' => false])->withHeaders(['Content-Type' => 'application/json'])
                         ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={$geminiKey}", [
                             'contents' => [['parts' => [['text' => $prompt]]]]
                         ]);

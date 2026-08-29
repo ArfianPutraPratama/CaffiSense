@@ -26,6 +26,11 @@ sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=${DB_PASSWORD:-rootpassword}/" /var/www/htm
 grep -q "DB_COLLATION" /var/www/html/.env && sed -i 's/DB_COLLATION=.*/DB_COLLATION=utf8mb4_unicode_ci/' /var/www/html/.env || echo "DB_COLLATION=utf8mb4_unicode_ci" >> /var/www/html/.env
 grep -q "DB_CHARSET" /var/www/html/.env && sed -i 's/DB_CHARSET=.*/DB_CHARSET=utf8mb4/' /var/www/html/.env || echo "DB_CHARSET=utf8mb4" >> /var/www/html/.env
 
+# Pass GEMINI_API_KEY into .env if present in environment
+if [ -n "$GEMINI_API_KEY" ]; then
+    grep -q "GEMINI_API_KEY" /var/www/html/.env && sed -i "s/GEMINI_API_KEY=.*/GEMINI_API_KEY=${GEMINI_API_KEY}/" /var/www/html/.env || echo "GEMINI_API_KEY=${GEMINI_API_KEY}" >> /var/www/html/.env
+fi
+
 # 4. Clear cached configuration to ensure MySQL is used
 php artisan config:clear || true
 
