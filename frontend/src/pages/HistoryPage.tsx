@@ -9,11 +9,15 @@ import {
   Calendar, ChevronRight, ChevronLeft, ChevronDown, X, Eye, Activity,
   ShieldAlert, ShieldCheck, TrendingUp,
   ArrowDownRight, ArrowUpRight, Search, Plus,
-  CheckCircle2, AlertTriangle, Clock
+  CheckCircle2, AlertTriangle, Clock,
+  Download, FileText, FileSpreadsheet, RefreshCw
 } from 'lucide-react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { getAllAssessmentsApi } from '../services/api';
 import AiAnalysisView from '../components/AiAnalysisView';
+import { useAuth } from '../context/AuthContext';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export interface DayMetric {
   dayIndex: number;
@@ -35,11 +39,14 @@ export interface DayMetric {
 
 export default function HistoryPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [history, setHistory] = useState<any[]>([]);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterImpact, setFilterImpact] = useState<'all' | 'low' | 'high'>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'highest_caffeine' | 'lowest_sleep'>('newest');
+  const [isExporting, setIsExporting] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   
   // View Mode: 'daily' vs 'weekly'
   const [viewMode, setViewMode] = useState<'daily' | 'weekly'>('daily');
@@ -395,6 +402,1033 @@ export default function HistoryPage() {
     };
   }, [sortedHistory, selectedWeekOffset]);
 
+  // ─── DAILY PDF EXPORT (2-PAGE MEDICAL REPORT) ───
+  const exportDailyPDF = async (item: any) => {
+    if (!item) {
+      alert("Pilih sesi yang ingin diekspor terlebih dahulu.");
+      return;
+    }
+    setIsExporting(true);
+    setShowExportMenu(false);
+    try {
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      let formattedDate = 'Hari Ini';
+      try {
+        const rawDate = item.created_at || item.date || item.assessment_date;
+        if (rawDate) {
+          const d = new Date(rawDate);
+          if (!isNaN(d.getTime())) {
+            formattedDate = d.toLocaleDateString('id-ID', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric'
+            });
+          } else {
+            formattedDate = String(rawDate).split('T')[0];
+          }
+        }
+      } catch {
+        formattedDate = new Date().toLocaleDateString('id-ID');
+      }
+
+      const rawTime = item.last_coffee_time || '15:00';
+      const cleanTime = rawTime.includes(':') 
+        ? rawTime.split(':').slice(0, 2).join(':') + ' WIB' 
+        : rawTime + ' WIB';
+
+      const estimatedMg = Math.round(item.estimated_caffeine_mg || 0);
+      const isHighImpact = item.ml_prediction === 1 || item.sleep_impact === 'High';
+      const waterIntake = item.water_intake_ml || 1500;
+      const mealInfo = item.meal_status === 'belum_makan' 
+        ? 'Perut Kosong (Belum Makan)' 
+        : `Sudah Makan (${item.last_meal_time || '12:30'})`;
+      const exerciseInfo = item.exercise_timing === 'sebelum_kopi'
+        ? `Sebelum Kopi (${item.exercise_duration_minutes || 30} mnt)`
+        : (item.exercise_timing === 'sesudah_kopi' ? `Sesudah Kopi (${item.exercise_duration_minutes || 30} mnt)` : 'Tidak Olahraga');
+      const smokingInfo = !item.smoking_intensity || item.smoking_intensity === 'none'
+        ? 'Tidak Merokok'
+        : `Merokok: ${item.smoking_intensity} Batang/Hari`;
+
+      const [h] = (rawTime || '12:00').split(':').map(Number);
+      const isNight = h >= 20;
+      const isLate = h >= 16;
+      const sleepDur = Number(item.sleep_duration) || 7;
+
+      let bLoad = Math.min(100, Math.round((estimatedMg / 400) * 80));
+      if (isNight && estimatedMg > 0) bLoad = Math.min(100, bLoad + 30);
+      else if (isLate && estimatedMg > 0) bLoad = Math.min(100, bLoad + 20);
+      if (sleepDur <= 5 && estimatedMg > 0) bLoad = Math.min(100, bLoad + 20);
+
+      let hLoad = Math.min(100, Math.round((estimatedMg / 400) * 75));
+      if (item.meal_status === 'belum_makan' && estimatedMg > 0) hLoad = Math.min(100, hLoad + 12);
+      if (isNight && estimatedMg > 0) hLoad = Math.min(100, hLoad + 15);
+
+      let sLoad = Math.min(100, Math.round((estimatedMg / 400) * 65));
+      if (item.meal_status === 'belum_makan' && estimatedMg > 0) sLoad = Math.min(100, sLoad + 30);
+
+      let kLoad = Math.min(100, Math.round((estimatedMg / 400) * 60));
+      if (waterIntake < 1000) kLoad = Math.min(100, kLoad + 25);
+      if (sleepDur <= 5 && estimatedMg > 0) kLoad = Math.min(100, kLoad + 15);
+
+      let lLoad = Math.min(100, Math.round((estimatedMg / 400) * 70));
+      if (item.smoking_intensity && item.smoking_intensity !== 'none') lLoad = Math.min(100, lLoad + 20);
+
+      let blLoad = Math.min(100, Math.round((estimatedMg / 400) * 50));
+      if (waterIntake < 1000 && estimatedMg > 0) blLoad = Math.min(100, blLoad + 15);
+      if (isNight && estimatedMg > 150) blLoad = Math.min(100, blLoad + 30);
+
+      let eLoad = Math.min(100, Math.round((estimatedMg / 400) * 35));
+      if (waterIntake < 1000 && estimatedMg > 0) eLoad = Math.min(100, eLoad + 25);
+      if (sleepDur <= 5) eLoad = Math.min(100, eLoad + 25);
+
+      let mLoad = Math.min(100, Math.round((estimatedMg / 400) * 45));
+      if (waterIntake < 1000 && estimatedMg > 0) mLoad = Math.min(100, mLoad + 25);
+      if (sleepDur <= 5 && estimatedMg > 0) mLoad = Math.min(100, mLoad + 20);
+
+      let safeTimePoint = '> 14 jam';
+      if (estimatedMg < 50) safeTimePoint = 'Sudah Aman';
+      else {
+        const hoursNeeded = Math.ceil(Math.log(50 / estimatedMg) / Math.log(0.5) * 5);
+        const finalH = (h + hoursNeeded) % 24;
+        safeTimePoint = `pk. ${finalH.toString().padStart(2, '0')}:00 WIB`;
+      }
+
+      // ─── HALAMAN 1 ───
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, pageWidth, 24, 'F');
+
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text("CAFFISENSE - LEMBAR KONSULTASI MEDIS HARIAN", 15, 11);
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(203, 213, 225);
+      doc.text("Instrumen Skrining Klinis Metabolisme Kafein & Interaksi Fisiologis Tubuh (Kemenkes/FDA Standards)", 15, 17);
+
+      // Metadata Box
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(15, 28, pageWidth - 30, 20, 2, 2, 'FD');
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text(`Nama Pasien : ${user?.name || 'Pasien CaffiSense'}`, 18, 34);
+      doc.text(`Email / Kontak : ${user?.email || '-'}`, 18, 39);
+      doc.text(`Status Sirkadian : ${isHighImpact ? 'POTENSI GANGGUAN TINGGI' : 'OPTIMAL / AMAN'}`, 18, 44);
+
+      doc.text(`Tanggal Pemeriksaan : ${formattedDate}`, pageWidth / 2 + 10, 34);
+      doc.text(`Jam Sesi Terakhir : ${cleanTime}`, pageWidth / 2 + 10, 39);
+      doc.text(`Beban Kafein Masuk : ${estimatedMg} mg (${Math.round((estimatedMg / 400) * 100)}% Batas FDA)`, pageWidth / 2 + 10, 44);
+
+      // Table 1: Parameters
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("1. Parameter Kebiasaan Harian Pasien (Sesi Terpilih)", 15, 53);
+
+      autoTable(doc, {
+        startY: 56,
+        theme: 'grid',
+        headStyles: { fillColor: [30, 41, 59], fontSize: 8, fontStyle: 'bold' },
+        styles: { fontSize: 7.2, cellPadding: 1.4 },
+        columnStyles: {
+          0: { cellWidth: 48, fontStyle: 'bold' },
+          1: { cellWidth: 46 },
+          2: { cellWidth: 96 }
+        },
+        head: [["Parameter Klinis", "Data Input Pasien", "Interpretasi & Standar Klinis Medis"]],
+        body: [
+          ["Konsumsi Kopi", `${item.coffee_cups_per_day || 1} Cangkir (${item.coffee_size || 'Sedang'})`, "Batas aman wajar Kemenkes/FDA: Maksimal 3-4 cangkir standar per hari"],
+          ["Beban Kafein", `${estimatedMg} mg (${Math.round((estimatedMg / 400) * 100)}% Batas FDA)`, estimatedMg > 400 ? "Melebihi ambang batas toleransi harian (400 mg/hari)" : "Berada dalam batas ambang toleransi harian aman"],
+          ["Waktu Minum Terakhir", cleanTime, h >= 18 ? "Sangat dekat dengan jam tidur (< 6 jam sebelum tidur)" : "Waktu cut-off aman terhadap ritme tidur alami"],
+          ["Kondisi Perut & Lambung", mealInfo, item.meal_status === 'belum_makan' ? "Sekresi asam HCl lambung berlebih tanpa buffer makanan" : "Mukosa lambung terlindungi buffer makanan"],
+          ["Aktivitas Olahraga", exerciseInfo, "Olahraga memobilisasi glikogen otot dan sirkulasi peredaran darah perifer"],
+          ["Konsumsi Nikotin / Rokok", smokingInfo, item.smoking_intensity && item.smoking_intensity !== 'none' ? "Nikotin mempercepat induksi enzim CYP1A2 hati hingga 2x lipat" : "Metabolisme eliminasi enzim CYP1A2 hati normal"],
+          ["Asupan Air Putih", `${waterIntake} ml/hari`, waterIntake < 1000 ? "Dehidrasi berat; mengentalkan darah & memicu takikardia" : "Hidrasi mencukupi standar Kemenkes 2.000 ml"],
+          ["Pola Istirahat / Tidur", item.sleep_duration ? `${item.sleep_duration} Jam (${item.sleep_quality || 'Cukup'})` : "Tidak dicatat", "Rekomendasi Kemenkes RI & AASM: 7-8 jam per malam"],
+          ["Perkiraan Bebas Kafein", safeTimePoint, "Waktu paruh ~5 jam; ambang <50 mg untuk fase Deep Sleep nyenyak"]
+        ]
+      });
+
+      // Table 2: 8 Organs
+      const t1EndY = (doc as any).lastAutoTable.finalY + 4;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("2. Pemetaan Beban Fisiologis 8 Organ Tubuh", 15, t1EndY + 1);
+
+      autoTable(doc, {
+        startY: t1EndY + 3,
+        head: [["Organ Tubuh", "Beban (%)", "Status Klinis", "Keterangan Medis & Mekanisme Fisiologis"]],
+        theme: 'grid',
+        headStyles: { fillColor: [51, 65, 85], fontSize: 8, fontStyle: 'bold' },
+        styles: { fontSize: 7.2, cellPadding: 1.4 },
+        columnStyles: {
+          0: { cellWidth: 46, fontStyle: 'bold' },
+          1: { cellWidth: 18 },
+          2: { cellWidth: 28, fontStyle: 'bold' },
+          3: { cellWidth: 98 }
+        },
+        body: [
+          ["Otak & Sistem Saraf", `${bLoad}%`, bLoad >= 70 ? 'Hiperstimulasi' : bLoad >= 40 ? 'Waspada' : 'Optimal', "Blokade reseptor adenosin A1/A2A; menunda kantuk alami & fase tidur dalam"],
+          ["Jantung & Sirkulasi", `${hLoad}%`, hLoad >= 70 ? 'Beban Tinggi' : hLoad >= 40 ? 'Waspada' : 'Stabil', "Pelepasan katekolamin adrenalin; beban kontraktilitas pompa ventrikel"],
+          ["Lambung & Saluran Cerna", `${sLoad}%`, sLoad >= 70 ? 'Iritasi Asam' : sLoad >= 40 ? 'Waspada' : 'Normal', "Sekresi asam lambung HCl berlebih terhadap lapisan mukosa lambung"],
+          ["Ginjal & Cairan", `${kLoad}%`, kLoad >= 70 ? 'Filtrasi Berat' : kLoad >= 40 ? 'Waspada' : 'Aman', "Diuresis akut; peningkatan ekskresi cairan & ion natrium/kalium"],
+          ["Hati (Enzim CYP1A2)", `${lLoad}%`, lLoad >= 70 ? 'Beban Hepatik' : lLoad >= 40 ? 'Waspada' : 'Normal', "Metabolisme degradasi kafein oleh enzim sitokrom P450 di organ hati"],
+          ["Kandung Kemih", `${blLoad}%`, blLoad >= 70 ? 'Risiko Nokturia' : blLoad >= 40 ? 'Waspada' : 'Normal', "Iritasi urin pekat & dorongan kencing berulang di jam tidur malam"],
+          ["Mata & Saraf Visual", `${eLoad}%`, eLoad >= 70 ? 'Kering / Lelah' : eLoad >= 40 ? 'Waspada' : 'Optimal', "Astenopia otot siliaris kelopak & dehidrasi lapisan air mata (Dry Eye)"],
+          ["Sistem Otot Somatik", `${mLoad}%`, mLoad >= 70 ? 'Ketegangan/Kram' : mLoad >= 40 ? 'Waspada' : 'Relaks', "Deplesi ion elektrolit kalsium/magnesium & keterbatasan pemulihan somatik"]
+        ]
+      });
+
+      // Quick Clinical Summary Box
+      const sumBoxY = (doc as any).lastAutoTable.finalY + 4;
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(15, sumBoxY, pageWidth - 30, 26, 2, 2, 'FD');
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("Ringkasan Temuan Klinis Utama (Sesi Hari Ini):", 18, sumBoxY + 5);
+
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text(`• Beban Kafein: ${estimatedMg} mg (${Math.round((estimatedMg / 400) * 100)}% dari Batas FDA 400 mg) ${estimatedMg > 400 ? '— Melebihi ambang batas toleransi harian.' : '— Berada dalam batas aman.'}`, 18, sumBoxY + 10);
+      doc.text(`• Waktu Konsumsi: Sesi terakhir pukul ${cleanTime}. Perkiraan tubuh bebas kafein (<50 mg): ${safeTimePoint}.`, 18, sumBoxY + 14.5);
+      doc.text(`• Status Hidrasi: Asupan air ${waterIntake} ml ${waterIntake < 1000 ? '(Dehidrasi berat — beban filtrasi ginjal & mata meningkat).' : '(Hidrasi tercukupi).' }`, 18, sumBoxY + 18.5);
+      doc.text(`• Pola Istirahat: Tidur ${item.sleep_duration ? `${item.sleep_duration} Jam (${item.sleep_quality || 'Cukup'})` : 'tidak dicatat'} ${Number(item.sleep_duration) <= 5 ? '— defisit tidur akut menghambat pemulihan sirkadian.' : ''}`, 18, sumBoxY + 22.5);
+
+      doc.setFontSize(6.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text("CaffiSense Clinical Health Summary  |  Halaman 1 dari 2", pageWidth / 2, pageHeight - 5, { align: 'center' });
+
+      // ─── HALAMAN 2 ───
+      doc.addPage();
+
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, pageWidth, 16, 'F');
+
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text("CAFFISENSE - LEMBAR EVALUASI MEDIS & KONSULTASI", 15, 7.5);
+
+      doc.setFontSize(7.2);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(203, 213, 225);
+      doc.text(`Pasien: ${user?.name || 'Pasien CaffiSense'}   |   Pemeriksaan: ${formattedDate}   |   Waktu: ${cleanTime}`, 15, 12.5);
+
+      doc.setFillColor(249, 115, 22);
+      doc.circle(pageWidth - 15, 8.5, 2, 'F');
+
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("3. Ulasan Klinis & Panduan Pemulihan (Rekomendasi Sistem AI)", 15, 23);
+
+      const rawLines = (item.ai_analysis || "Tidak ada evaluasi AI yang tercatat pada sesi ini.")
+        .replace(/[*#]/g, '')
+        .split('\n')
+        .map((l: string) => l.trim())
+        .filter(Boolean);
+
+      const filteredLines = rawLines.filter((line: string) => {
+        const lower = line.toLowerCase();
+        if (line === '---' || line === '***' || line === '___') return false;
+        if (lower.startsWith('halo') || lower.startsWith('terima kasih')) return false;
+        if (lower.startsWith('sebagai praktisi') || lower.startsWith('mari kita bedah')) return false;
+        if (lower.startsWith('profil yang anda') || lower.startsWith('jangan khawatir')) return false;
+        if (lower.startsWith('tubuh anda saat ini sedang mengolah')) return false;
+        if (lower.startsWith('inilah yang sedang dirasakan')) return false;
+        if (lower.startsWith('semoga') || lower.startsWith('salam sehat')) return false;
+        if (lower.startsWith('jika pola kombinasi')) return false;
+        return true;
+      });
+
+      let currentY = 29;
+      const maxTextY = pageHeight - 44;
+
+      for (const line of filteredLines) {
+        const isHeader = /^\d+\.\s+[A-Za-z]/.test(line) || /^[A-D]\.\s+[A-Za-z]/.test(line);
+
+        if (isHeader) {
+          if (currentY > maxTextY - 8) {
+            doc.addPage();
+            doc.setFillColor(15, 23, 42);
+            doc.rect(0, 0, pageWidth, 16, 'F');
+            doc.setFontSize(9.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(255, 255, 255);
+            doc.text("CAFFISENSE - EVALUASI MEDIS (LANJUTAN)", 15, 7.5);
+            doc.setFontSize(7.2);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(203, 213, 225);
+            doc.text(`Pasien: ${user?.name || 'Pasien CaffiSense'}   |   Pemeriksaan: ${formattedDate}`, 15, 12.5);
+            currentY = 24;
+          } else {
+            currentY += 1.5;
+          }
+
+          doc.setFontSize(7.8);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(15, 23, 42);
+          doc.text(line, 15, currentY);
+          currentY += 4;
+        } else {
+          const cleanItem = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
+          const bulletText = `•  ${cleanItem}`;
+
+          const itemLines = doc.splitTextToSize(bulletText, 180);
+          const blockHeight = (itemLines.length * 3.3) + 1.8;
+
+          if (currentY + blockHeight > maxTextY) {
+            doc.addPage();
+            doc.setFillColor(15, 23, 42);
+            doc.rect(0, 0, pageWidth, 16, 'F');
+            doc.setFontSize(9.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(255, 255, 255);
+            doc.text("CAFFISENSE - EVALUASI MEDIS (LANJUTAN)", 15, 7.5);
+            doc.setFontSize(7.2);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(203, 213, 225);
+            doc.text(`Pasien: ${user?.name || 'Pasien CaffiSense'}   |   Pemeriksaan: ${formattedDate}`, 15, 12.5);
+            currentY = 24;
+          }
+
+          doc.setFontSize(7.2);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(51, 65, 85);
+          doc.text(bulletText, 15, currentY, { align: 'justify', maxWidth: 180 });
+          currentY += (itemLines.length * 3.3) + 1.6;
+        }
+      }
+
+      // Section 4: Catatan Dokter
+      const sigBoxY = Math.max(currentY + 4, pageHeight - 42);
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.4);
+      doc.setFillColor(250, 250, 250);
+      doc.roundedRect(15, sigBoxY, pageWidth - 30, 26, 2, 2, 'FD');
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("Catatan Dokter / Tenaga Medis Pemeriksa:", 18, sigBoxY + 5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(148, 163, 184);
+      doc.text("..................................................................................................................................................................................................", 18, sigBoxY + 11);
+      doc.text("..................................................................................................................................................................................................", 18, sigBoxY + 16);
+
+      doc.setFontSize(7);
+      doc.setTextColor(71, 85, 105);
+      doc.text("Tanggal Konsultasi: .......................................", 18, sigBoxY + 22);
+      doc.text("Tanda Tangan & Stempel Faskes: ___________________________", pageWidth - 98, sigBoxY + 22);
+
+      doc.setFontSize(6.2);
+      doc.setTextColor(148, 163, 184);
+      doc.text("Dokumen klinis ini diterbitkan secara otomatis oleh CaffiSense sebagai instrumen skrining medis ritme sirkadian harian.", 15, pageHeight - 5);
+      doc.text("Halaman 2 dari 2", pageWidth - 15, pageHeight - 5, { align: 'right' });
+
+      const fileDate = (item.created_at || new Date().toISOString()).split('T')[0];
+      doc.save(`CaffiSense_LaporanMedis_Harian_${fileDate}.pdf`);
+    } catch (err) {
+      console.error(err);
+      alert("Gagal mencetak PDF Harian.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // ─── DAILY EXCEL EXPORT (.XLS HTML SPREADSHEET TABLE) ───
+  const exportDailyExcel = (item: any) => {
+    if (!item) {
+      alert("Pilih sesi yang ingin diekspor terlebih dahulu.");
+      return;
+    }
+    setShowExportMenu(false);
+
+    try {
+      let formattedDate = 'Hari Ini';
+      try {
+        const rawDate = item.created_at || item.date || item.assessment_date;
+        if (rawDate) {
+          const d = new Date(rawDate);
+          if (!isNaN(d.getTime())) {
+            formattedDate = d.toLocaleDateString('id-ID', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric'
+            });
+          } else {
+            formattedDate = String(rawDate).split('T')[0];
+          }
+        }
+      } catch {
+        formattedDate = new Date().toLocaleDateString('id-ID');
+      }
+
+      const rawTime = item.last_coffee_time || '15:00';
+      const cleanTime = rawTime.includes(':') 
+        ? rawTime.split(':').slice(0, 2).join(':') + ' WIB' 
+        : rawTime + ' WIB';
+
+      const estimatedMg = Math.round(item.estimated_caffeine_mg || 0);
+      const waterIntake = item.water_intake_ml || 1500;
+      const smokingInfo = !item.smoking_intensity || item.smoking_intensity === 'none'
+        ? 'Tidak Merokok'
+        : `Merokok: ${item.smoking_intensity} Batang/Hari`;
+      const isHighImpact = item.ml_prediction === 1 || item.sleep_impact === 'High';
+
+      const [h] = (rawTime || '12:00').split(':').map(Number);
+      const isNight = h >= 20;
+      const isLate = h >= 16;
+      const sleepDur = Number(item.sleep_duration) || 7;
+
+      let bLoad = Math.min(100, Math.round((estimatedMg / 400) * 80));
+      if (isNight && estimatedMg > 0) bLoad = Math.min(100, bLoad + 30);
+      else if (isLate && estimatedMg > 0) bLoad = Math.min(100, bLoad + 20);
+      if (sleepDur <= 5 && estimatedMg > 0) bLoad = Math.min(100, bLoad + 20);
+
+      let hLoad = Math.min(100, Math.round((estimatedMg / 400) * 75));
+      if (item.meal_status === 'belum_makan' && estimatedMg > 0) hLoad = Math.min(100, hLoad + 12);
+      if (isNight && estimatedMg > 0) hLoad = Math.min(100, hLoad + 15);
+
+      let sLoad = Math.min(100, Math.round((estimatedMg / 400) * 65));
+      if (item.meal_status === 'belum_makan' && estimatedMg > 0) sLoad = Math.min(100, sLoad + 30);
+
+      let kLoad = Math.min(100, Math.round((estimatedMg / 400) * 60));
+      if (waterIntake < 1000) kLoad = Math.min(100, kLoad + 25);
+      if (sleepDur <= 5 && estimatedMg > 0) kLoad = Math.min(100, kLoad + 15);
+
+      let lLoad = Math.min(100, Math.round((estimatedMg / 400) * 70));
+      if (item.smoking_intensity && item.smoking_intensity !== 'none') lLoad = Math.min(100, lLoad + 20);
+
+      let blLoad = Math.min(100, Math.round((estimatedMg / 400) * 50));
+      if (waterIntake < 1000 && estimatedMg > 0) blLoad = Math.min(100, blLoad + 15);
+      if (isNight && estimatedMg > 150) blLoad = Math.min(100, blLoad + 30);
+
+      let eLoad = Math.min(100, Math.round((estimatedMg / 400) * 35));
+      if (waterIntake < 1000 && estimatedMg > 0) eLoad = Math.min(100, eLoad + 25);
+      if (sleepDur <= 5) eLoad = Math.min(100, eLoad + 25);
+
+      let mLoad = Math.min(100, Math.round((estimatedMg / 400) * 45));
+      if (waterIntake < 1000 && estimatedMg > 0) mLoad = Math.min(100, mLoad + 25);
+      if (sleepDur <= 5 && estimatedMg > 0) mLoad = Math.min(100, mLoad + 20);
+
+      let safeTimePoint = '> 14 jam';
+      if (estimatedMg < 50) safeTimePoint = 'Sudah Aman';
+      else {
+        const hoursNeeded = Math.ceil(Math.log(50 / estimatedMg) / Math.log(0.5) * 5);
+        const finalH = (h + hoursNeeded) % 24;
+        safeTimePoint = `pk. ${finalH.toString().padStart(2, '0')}:00 WIB`;
+      }
+
+      const organs = [
+        { name: "Otak & Sistem Saraf", load: bLoad, status: bLoad >= 70 ? 'Hiperstimulasi' : bLoad >= 40 ? 'Waspada' : 'Optimal', desc: "Blokade reseptor adenosin A1/A2A; menunda kantuk alami & fase tidur dalam" },
+        { name: "Jantung & Sirkulasi", load: hLoad, status: hLoad >= 70 ? 'Beban Tinggi' : hLoad >= 40 ? 'Waspada' : 'Stabil', desc: "Pelepasan katekolamin adrenalin; beban kontraktilitas pompa ventrikel" },
+        { name: "Lambung & Saluran Cerna", load: sLoad, status: sLoad >= 70 ? 'Iritasi Asam' : sLoad >= 40 ? 'Waspada' : 'Normal', desc: "Sekresi asam lambung HCl berlebih terhadap lapisan mukosa lambung" },
+        { name: "Ginjal & Cairan", load: kLoad, status: kLoad >= 70 ? 'Filtrasi Berat' : kLoad >= 40 ? 'Waspada' : 'Aman', desc: "Diuresis akut; peningkatan ekskresi cairan & ion natrium/kalium" },
+        { name: "Hati (Enzim CYP1A2)", load: lLoad, status: lLoad >= 70 ? 'Beban Hepatik' : lLoad >= 40 ? 'Waspada' : 'Normal', desc: "Metabolisme degradasi kafein oleh enzim sitokrom P450 di organ hati" },
+        { name: "Kandung Kemih", load: blLoad, status: blLoad >= 70 ? 'Risiko Nokturia' : blLoad >= 40 ? 'Waspada' : 'Normal', desc: "Iritasi urin pekat & dorongan kencing berulang di jam tidur malam" },
+        { name: "Mata & Saraf Visual", load: eLoad, status: eLoad >= 70 ? 'Kering / Lelah' : eLoad >= 40 ? 'Waspada' : 'Optimal', desc: "Astenopia otot siliaris kelopak & dehidrasi lapisan air mata (Dry Eye)" },
+        { name: "Sistem Otot Somatik", load: mLoad, status: mLoad >= 70 ? 'Ketegangan/Kram' : mLoad >= 40 ? 'Waspada' : 'Relaks', desc: "Deplesi ion elektrolit kalsium/magnesium & keterbatasan pemulihan somatik" }
+      ];
+
+      const getBadgeStyle = (load: number) => {
+        if (load >= 70) return 'background-color: #fee2e2; color: #b91c1c; font-weight: bold; text-align: center;';
+        if (load >= 40) return 'background-color: #fef3c7; color: #b45309; font-weight: bold; text-align: center;';
+        return 'background-color: #dcfce7; color: #15803d; font-weight: bold; text-align: center;';
+      };
+
+      const excelHtml = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+  <meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8">
+  <style>
+    body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; font-size: 10.5pt; color: #1e293b; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+    th { border: 1px solid #cbd5e1; padding: 7px 10px; font-weight: bold; }
+    td { border: 1px solid #cbd5e1; padding: 6px 10px; font-size: 10pt; }
+    .header-banner { background-color: #0f172a; color: #ffffff; font-size: 13pt; font-weight: bold; text-align: center; height: 38px; }
+    .section-title { background-color: #334155; color: #ffffff; font-size: 10.5pt; font-weight: bold; padding: 6px 10px; text-align: left; }
+    .th-col { background-color: #f1f5f9; color: #0f172a; font-weight: bold; text-align: left; }
+    .label-col { background-color: #f8fafc; font-weight: bold; color: #334155; width: 200px; }
+    .val-col { width: 280px; }
+  </style>
+</head>
+<body>
+  <table>
+    <tr>
+      <th colspan="4" class="header-banner">CAFFISENSE - LEMBAR KONSULTASI MEDIS HARIAN</th>
+    </tr>
+    <tr>
+      <td class="label-col">Nama Pasien / User</td>
+      <td class="val-col">${user?.name || 'Pasien CaffiSense'}</td>
+      <td class="label-col">Tanggal Pemeriksaan</td>
+      <td class="val-col">${formattedDate}</td>
+    </tr>
+    <tr>
+      <td class="label-col">Email / Kontak</td>
+      <td class="val-col">${user?.email || '-'}</td>
+      <td class="label-col">Jam Sesi Terakhir</td>
+      <td class="val-col">${cleanTime}</td>
+    </tr>
+    <tr>
+      <td class="label-col">Status Risiko Sirkadian</td>
+      <td class="val-col" style="font-weight: bold; color: ${isHighImpact ? '#dc2626' : '#16a34a'};">
+        ${isHighImpact ? 'POTENSI GANGGUAN TINGGI' : 'OPTIMAL / AMAN'}
+      </td>
+      <td class="label-col">Total Kafein Terdeteksi</td>
+      <td class="val-col"><b>${estimatedMg} mg</b> (${Math.round((estimatedMg / 400) * 100)}% dari Batas FDA 400 mg)</td>
+    </tr>
+    <tr><td colspan="4" style="height: 12px; border: none;"></td></tr>
+    <tr>
+      <th colspan="4" class="section-title">1. DATA PARAMETER KEBIASAAN HARIAN (SESI INI)</th>
+    </tr>
+    <tr>
+      <th class="th-col" style="width: 220px;">Parameter Klinis</th>
+      <th class="th-col" style="width: 150px; text-align: center;">Nilai Sesi Ini</th>
+      <th class="th-col" style="width: 140px; text-align: center;">Status Skrining</th>
+      <th class="th-col">Interpretasi & Standar Medis</th>
+    </tr>
+    <tr>
+      <td><b>Konsumsi Kopi Harian</b></td>
+      <td style="text-align: center;">${item.coffee_cups_per_day || 1} Cangkir (${item.coffee_size || 'Sedang'})</td>
+      <td style="text-align: center; ${(item.coffee_cups_per_day || 1) > 4 ? 'color: #dc2626; font-weight: bold;' : 'color: #16a34a;'}">${(item.coffee_cups_per_day || 1) > 4 ? 'Berlebih' : 'Normal'}</td>
+      <td>Batas anjuran wajar 3-4 cangkir standar per hari</td>
+    </tr>
+    <tr style="background-color: #f8fafc;">
+      <td><b>Beban Kafein Masuk</b></td>
+      <td style="text-align: center;"><b>${estimatedMg} mg</b></td>
+      <td style="text-align: center; ${estimatedMg > 400 ? 'color: #dc2626; font-weight: bold;' : 'color: #16a34a;'}">${Math.round((estimatedMg / 400) * 100)}% Batas FDA</td>
+      <td>${estimatedMg > 400 ? 'Melebihi ambang batas toleransi FDA (400 mg/hari)' : 'Dalam batas aman FDA'}</td>
+    </tr>
+    <tr>
+      <td><b>Waktu Minum Terakhir</b></td>
+      <td style="text-align: center;">${cleanTime}</td>
+      <td style="text-align: center; ${parseInt((rawTime || '12').split(':')[0]) >= 18 ? 'color: #d97706; font-weight: bold;' : 'color: #16a34a;'}">${parseInt((rawTime || '12').split(':')[0]) >= 18 ? 'Dekat Jam Tidur' : 'Aman'}</td>
+      <td>Waktu cut-off ideal minimal 6 jam sebelum istirahat malam</td>
+    </tr>
+    <tr style="background-color: #f8fafc;">
+      <td><b>Kondisi Lambung & Makan</b></td>
+      <td style="text-align: center;">${item.meal_status === 'belum_makan' ? 'Perut Kosong' : 'Sudah Makan'}</td>
+      <td style="text-align: center; ${item.meal_status === 'belum_makan' ? 'color: #dc2626; font-weight: bold;' : 'color: #16a34a;'}">${item.meal_status === 'belum_makan' ? 'Perhatian' : 'Optimal'}</td>
+      <td>${item.meal_status === 'belum_makan' ? 'Asam lambung HCl meningkat masif tanpa penyangga (buffer)' : 'Aman terlapisi nutrisi makanan'}</td>
+    </tr>
+    <tr>
+      <td><b>Aktivitas Olahraga</b></td>
+      <td style="text-align: center;">${item.exercise_timing !== 'tidak_olahraga' ? `${item.exercise_duration_minutes || 30} Menit` : '0 Menit'}</td>
+      <td style="text-align: center;">${item.exercise_timing !== 'tidak_olahraga' ? 'Aktif' : 'Metabolisme Pasif'}</td>
+      <td>Olahraga meningkatkan efisiensi sirkulasi perifer dan otot</td>
+    </tr>
+    <tr style="background-color: #f8fafc;">
+      <td><b>Konsumsi Nikotin / Rokok</b></td>
+      <td style="text-align: center;">${smokingInfo}</td>
+      <td style="text-align: center; ${item.smoking_intensity && item.smoking_intensity !== 'none' ? 'color: #d97706; font-weight: bold;' : 'color: #16a34a;'}">${item.smoking_intensity && item.smoking_intensity !== 'none' ? 'Induksi CYP1A2' : 'Normal'}</td>
+      <td>Nikotin mempercepat degradasi waktu paruh kafein di organ hati</td>
+    </tr>
+    <tr>
+      <td><b>Asupan Air Putih</b></td>
+      <td style="text-align: center;">${waterIntake} ml</td>
+      <td style="text-align: center; ${waterIntake < 1000 ? 'color: #dc2626; font-weight: bold;' : 'color: #16a34a;'}">${waterIntake < 1000 ? 'Dehidrasi Berat' : 'Tercukupi'}</td>
+      <td>Standar Kemenkes RI: Minimal 2.000 ml (8 gelas) per hari</td>
+    </tr>
+    <tr style="background-color: #f8fafc;">
+      <td><b>Pola Tidur Semalam</b></td>
+      <td style="text-align: center;">${item.sleep_duration ? `${item.sleep_duration} Jam` : '-'}</td>
+      <td style="text-align: center; ${Number(item.sleep_duration) <= 5 ? 'color: #dc2626; font-weight: bold;' : 'color: #16a34a;'}">${item.sleep_quality || '-'}</td>
+      <td>Rekomendasi Kemenkes & AASM: 7-8 jam per malam</td>
+    </tr>
+    <tr>
+      <td><b>Estimasi Tubuh Bebas Kafein</b></td>
+      <td style="text-align: center;"><b>${safeTimePoint}</b></td>
+      <td style="text-align: center;">Waktu Paruh ~5 Jam</td>
+      <td>Kadar kafein darah di bawah ambang 50 mg untuk fase Deep Sleep</td>
+    </tr>
+    <tr><td colspan="4" style="height: 12px; border: none;"></td></tr>
+    <tr>
+      <th colspan="4" class="section-title">2. PEMETAAN BEBAN FISIOLOGIS 8 ORGAN TUBUH (SESI INI)</th>
+    </tr>
+    <tr>
+      <th class="th-col" style="width: 220px;">Organ Tubuh</th>
+      <th class="th-col" style="width: 150px; text-align: center;">Beban Fisiologis</th>
+      <th class="th-col" style="width: 140px; text-align: center;">Status Klinis</th>
+      <th class="th-col">Keterangan Medis & Mekanisme Fisiologis</th>
+    </tr>
+    ${organs.map(o => `
+    <tr>
+      <td><b>${o.name}</b></td>
+      <td style="text-align: center; font-weight: bold;">${o.load}%</td>
+      <td style="${getBadgeStyle(o.load)}">${o.status}</td>
+      <td>${o.desc}</td>
+    </tr>
+    `).join('')}
+    <tr><td colspan="4" style="height: 12px; border: none;"></td></tr>
+    <tr>
+      <th colspan="4" class="section-title">3. LEMBAR CATATAN KONSULTASI DOKTER & VALIDASI KLINIS</th>
+    </tr>
+    <tr>
+      <td class="label-col">Catatan Dokter Pemeriksa</td>
+      <td colspan="3" style="height: 35px; vertical-align: top; color: #94a3b8;">...................................................................................................................................................................</td>
+    </tr>
+    <tr>
+      <td class="label-col">Rekomendasi Terapi / Resep</td>
+      <td colspan="3" style="height: 35px; vertical-align: top; color: #94a3b8;">...................................................................................................................................................................</td>
+    </tr>
+    <tr>
+      <td class="label-col">Tanggal Konsultasi</td>
+      <td>........................................................</td>
+      <td class="label-col">Tanda Tangan & Stempel</td>
+      <td>______________________________________</td>
+    </tr>
+  </table>
+</body>
+</html>
+      `;
+
+      const blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      const fileDate = (item.created_at || new Date().toISOString()).split('T')[0];
+      link.setAttribute("download", `CaffiSense_TabelMedis_Harian_${fileDate}.xls`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setShowExportMenu(false);
+    } catch (err) {
+      console.error(err);
+      alert("Gagal mengekspor Excel");
+    }
+  };
+
+  // ─── WEEKLY PDF EXPORT (CONSOLIDATED 7-DAY REPORT) ───
+  const exportWeeklyPDF = async (metrics: any) => {
+    if (!metrics) {
+      alert("Data mingguan tidak tersedia untuk diekspor.");
+      return;
+    }
+    setIsExporting(true);
+    setShowExportMenu(false);
+    try {
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      // Header Banner Weekly
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, pageWidth, 24, 'F');
+
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text("CAFFISENSE - RAPOR KLINIS SIRKADIAN MINGGUAN", 15, 11);
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(203, 213, 225);
+      doc.text("Rekapitulasi Konsolidasi 7 Hari Ritme Sirkadian, Beban Organ & Metabolisme Kafein", 15, 17);
+
+      // Metadata Card
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(15, 28, pageWidth - 30, 22, 2, 2, 'FD');
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text(`Nama Pasien : ${user?.name || 'Pasien CaffiSense'}`, 18, 34);
+      doc.text(`Email / Kontak : ${user?.email || '-'}`, 18, 39);
+      doc.text(`Periode Evaluasi : ${metrics.weekLabel}`, 18, 44);
+
+      doc.text(`Skor Sirkadian Mingguan : ${metrics.score} / 100 (${metrics.scoreCategory})`, pageWidth / 2 + 10, 34);
+      doc.text(`Hari Aktif Tercatat : ${metrics.recordedDaysCount} dari 7 Hari (${metrics.goodDaysCount} Prima, ${metrics.poorDaysCount} Beban Tinggi)`, pageWidth / 2 + 10, 39);
+      doc.text(`Rata-Rata Mingguan : Kafein ${metrics.avgCaffeine} mg/hari  |  Tidur ${metrics.avgSleep} Jam/malam`, pageWidth / 2 + 10, 44);
+
+      // Table 1: 7-Day Recap
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("1. Rekapitulasi Harian Konsumsi & Pola Istirahat (7 Hari)", 15, 55);
+
+      const tableRows = metrics.days.map((d: DayMetric) => {
+        const mealText = d.mealStatus === 'belum_makan' ? 'Perut Kosong' : (d.mealStatus ? 'Sudah Makan' : '-');
+        return [
+          d.fullDayName,
+          d.totalCaffeine > 0 ? `${d.totalCaffeine} mg` : '0 mg',
+          d.cups > 0 ? `${d.cups} cangkir` : '-',
+          d.lastCoffeeTime ? `pk. ${d.lastCoffeeTime}` : '-',
+          mealText,
+          d.sleepHours ? `${d.sleepHours} Jam` : '-',
+          d.statusLabel
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 58,
+        theme: 'grid',
+        headStyles: { fillColor: [30, 41, 59], fontSize: 7.8, fontStyle: 'bold' },
+        styles: { fontSize: 7.2, cellPadding: 1.4 },
+        columnStyles: {
+          0: { cellWidth: 26, fontStyle: 'bold' },
+          1: { cellWidth: 24 },
+          2: { cellWidth: 22 },
+          3: { cellWidth: 24 },
+          4: { cellWidth: 30 },
+          5: { cellWidth: 24 },
+          6: { cellWidth: 30, fontStyle: 'bold' }
+        },
+        head: [["Hari", "Kafein (mg)", "Cangkir", "Jam Terakhir", "Kondisi Perut", "Durasi Tidur", "Status Sirkadian"]],
+        body: tableRows
+      });
+
+      // Table 2: 8 Organs Weekly
+      const t1EndY = (doc as any).lastAutoTable.finalY + 4;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("2. Pemetaan Rata-Rata Beban Fisiologis 8 Organ Tubuh (Mingguan)", 15, t1EndY + 1);
+
+      const avgCaffeine = metrics.avgCaffeine || 0;
+      const bAvg = Math.min(100, Math.round((avgCaffeine / 400) * 80 + (metrics.lateCoffeeCount > 0 ? 15 : 0)));
+      const hAvg = Math.min(100, Math.round((avgCaffeine / 400) * 75 + (metrics.poorDaysCount > 0 ? 10 : 0)));
+      const sAvg = Math.min(100, Math.round((avgCaffeine / 400) * 65 + (metrics.days.some((d: DayMetric) => d.mealStatus === 'belum_makan') ? 20 : 0)));
+      const kAvg = Math.min(100, Math.round((avgCaffeine / 400) * 60));
+      const lAvg = Math.min(100, Math.round((avgCaffeine / 400) * 70));
+      const blAvg = Math.min(100, Math.round((avgCaffeine / 400) * 50 + (metrics.lateCoffeeCount > 0 ? 15 : 0)));
+      const eAvg = Math.min(100, Math.round((avgCaffeine / 400) * 35 + (metrics.avgSleep < 6 ? 20 : 0)));
+      const mAvg = Math.min(100, Math.round((avgCaffeine / 400) * 45));
+
+      autoTable(doc, {
+        startY: t1EndY + 3,
+        head: [["Organ Tubuh", "Rerata Beban (%)", "Status Evaluasi", "Keterangan Klinis Akumulatif Mingguan"]],
+        theme: 'grid',
+        headStyles: { fillColor: [51, 65, 85], fontSize: 8, fontStyle: 'bold' },
+        styles: { fontSize: 7.2, cellPadding: 1.4 },
+        columnStyles: {
+          0: { cellWidth: 46, fontStyle: 'bold' },
+          1: { cellWidth: 26 },
+          2: { cellWidth: 28, fontStyle: 'bold' },
+          3: { cellWidth: 90 }
+        },
+        body: [
+          ["Otak & Sistem Saraf", `${bAvg}%`, bAvg >= 70 ? 'Hiperstimulasi' : bAvg >= 40 ? 'Waspada' : 'Optimal', "Akumulasi blokade reseptor adenosin dan potensi defisit slow-wave sleep"],
+          ["Jantung & Sirkulasi", `${hAvg}%`, hAvg >= 70 ? 'Beban Tinggi' : hAvg >= 40 ? 'Waspada' : 'Stabil', "Frekuensi stimulasi katekolamin simpatis mingguan terhadap kontraktilitas miokardium"],
+          ["Lambung & Saluran Cerna", `${sAvg}%`, sAvg >= 70 ? 'Iritasi Asam' : sAvg >= 40 ? 'Waspada' : 'Normal', "Intensitas sekresi asam lambung HCl berulang, khususnya saat minum tanpa makan"],
+          ["Ginjal & Cairan", `${kAvg}%`, kAvg >= 70 ? 'Filtrasi Berat' : kAvg >= 40 ? 'Waspada' : 'Aman', "Laju filtrasi glomerulus mingguan dan pembuangan ion metabolit kafein"],
+          ["Hati (Enzim CYP1A2)", `${lAvg}%`, lAvg >= 70 ? 'Beban Hepatik' : lAvg >= 40 ? 'Waspada' : 'Normal', "Konsistensi beban klirens enzim sitokrom P450 hati dalam mengeliminasi kafein"],
+          ["Kandung Kemih", `${blAvg}%`, blAvg >= 70 ? 'Risiko Nokturia' : blAvg >= 40 ? 'Waspada' : 'Normal', "Frekuensi desakan berkemih nokturia di jam tidur malam akibat ngopi sore"],
+          ["Mata & Saraf Visual", `${eAvg}%`, eAvg >= 70 ? 'Kering / Lelah' : eAvg >= 40 ? 'Waspada' : 'Optimal', "Astenopia penglihatan dan dehidrasi lapisan mukosa mata akibat kurang tidur"],
+          ["Sistem Otot Somatik", `${mAvg}%`, mAvg >= 70 ? 'Ketegangan/Kram' : mAvg >= 40 ? 'Waspada' : 'Relaks', "Kebutuhan relaksasi neuromuskular dan restorasi energi pasca-stimulasi"]
+        ]
+      });
+
+      // Quick Summary Box
+      const sumBoxY = (doc as any).lastAutoTable.finalY + 4;
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(15, sumBoxY, pageWidth - 30, 24, 2, 2, 'FD');
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("Ringkasan Tren & Capaian Mingguan:", 18, sumBoxY + 5);
+
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text(`• Indeks Disiplin: ${metrics.goodDaysCount} hari prima (${Math.round((metrics.goodDaysCount / 7) * 100)}% dari target mingguan). ${metrics.score >= 80 ? 'Keteraturan konsumsi sangat terjaga.' : 'Perlu meningkatkan kepatuhan jam minum.'}`, 18, sumBoxY + 10);
+      doc.text(`• Pengendalian Waktu: Terdeteksi ${metrics.lateCoffeeCount} kali sesi ngopi lewat pk. 17:00 yang berpotensi memotong durasi deep sleep.`, 18, sumBoxY + 14.5);
+      doc.text(`• Keseimbangan Tidur: Rata-rata istirahat ${metrics.avgSleep} jam/malam ${metrics.avgSleep >= 7 ? '(Memenuhi standar ideal Kemenkes/AASM 7-8 jam).' : '(Defisit tidur, disarankan memajukan jam istirahat).' }`, 18, sumBoxY + 19);
+
+      doc.setFontSize(6.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text("CaffiSense Weekly Clinical Summary  |  Halaman 1 dari 2", pageWidth / 2, pageHeight - 5, { align: 'center' });
+
+      // ─── HALAMAN 2 ───
+      doc.addPage();
+
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, pageWidth, 16, 'F');
+
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text("CAFFISENSE - RAPOR KLINIS SIRKADIAN MINGGUAN", 15, 7.5);
+
+      doc.setFontSize(7.2);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(203, 213, 225);
+      doc.text(`Pasien: ${user?.name || 'Pasien CaffiSense'}   |   Periode: ${metrics.weekLabel}   |   Skor: ${metrics.score}/100`, 15, 12.5);
+
+      doc.setFillColor(249, 115, 22);
+      doc.circle(pageWidth - 15, 8.5, 2, 'F');
+
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("3. Ulasan Evaluasi Mingguan & Rencana Tindak Lanjut", 15, 23);
+
+      const weeklyPoints = [
+        {
+          header: "A. Evaluasi Akumulasi Dosis & Toleransi Kafein Mingguan",
+          bullets: [
+            `Total asupan kafein tercatat selama pekan ini mencapai ${metrics.totalCaffeine || 0} mg dengan rata-rata harian ${metrics.avgCaffeine || 0} mg/hari. Angka ini ${metrics.avgCaffeine > 400 ? 'melebihi batas aman FDA (400 mg/hari), sehingga diperlukan penurunan porsi cangkir secara bertahap.' : 'berada dalam batas toleransi wajar Kemenkes dan FDA.'}`,
+            "Kestabilan waktu paruh eliminasi kafein (5 jam) memerlukan jeda konsumsi yang disiplin agar tidak terjadi penumpukan metabolit paraksantin dan teobromin di pembuluh darah sebelum waktu tidur malam."
+          ]
+        },
+        {
+          header: "B. Analisis Kepatuhan Waktu Cut-Off & Ritme Hormon Sirkadian",
+          bullets: [
+            metrics.lateCoffeeCount > 0 
+              ? `Terdapat ${metrics.lateCoffeeCount} sesi konsumsi melewati batas aman sore (pukul 15:00-17:00). Kafein di malam hari terbukti memblokir reseptor adenosin di otak, menunda pelepasan hormon melatonin alami, serta memotong proporsi fase Slow-Wave Sleep (Deep Sleep) hingga 20-40%.`
+              : "Kepatuhan waktu cut-off kopi sangat baik sepanjang minggu ini. Pasien konsisten menghentikan asupan stimulan sebelum sore hari, memberikan waktu yang cukup bagi tubuh untuk meluruhkan kadar kafein darah di bawah 50 mg menjelang waktu istirahat malam.",
+            `Rata-rata durasi tidur mingguan berada pada ${metrics.avgSleep || 0} jam/malam. Disarankan menjaga jam tidur konsisten (±30 menit) setiap hari untuk memperkuat sinkronisasi jam biologis internal inti suprachiasmatic nucleus (SCN).`
+          ]
+        },
+        {
+          header: "C. Interaksi Saluran Cerna (Gastrointestinal) & Rekomendasi Pekan Depan",
+          bullets: [
+            "Pencegahan Iritasi Lambung: Hindari mengonsumsi kopi dalam kondisi perut kosong. Selalu konsumsi makanan bernutrisi tinggi serat atau karbohidrat kompleks (seperti oatmeal atau pisang) sebagai penyangga (buffer) terhadap lonjakan asam klorida (HCl).",
+            "Target Hidrasi Pekan Depan: Tingkatkan asupan air putih harian minimal 2.000 ml (8 gelas) guna mengimbangi sifat diuretik alami kafein dan memperlancar laju klirens ginjal.",
+            "Jeda Hormon Kortisol Pagi: Berikan jeda 60–90 menit setelah bangun pagi sebelum menikmati cangkir kopi pertama untuk menghindari toleransi kafein dini saat lonjakan kortisol alami sedang memuncak."
+          ]
+        }
+      ];
+
+      let currentY = 29;
+
+      for (const section of weeklyPoints) {
+        doc.setFontSize(7.8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(15, 23, 42);
+        doc.text(section.header, 15, currentY);
+        currentY += 4;
+
+        for (const bullet of section.bullets) {
+          const bulletText = `•  ${bullet}`;
+          const lines = doc.splitTextToSize(bulletText, 180);
+          
+          doc.setFontSize(7.2);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(51, 65, 85);
+          doc.text(bulletText, 15, currentY, { align: 'justify', maxWidth: 180 });
+          currentY += (lines.length * 3.3) + 1.8;
+        }
+        currentY += 1.5;
+      }
+
+      // Section 4: Catatan Dokter
+      const sigBoxY = Math.max(currentY + 4, pageHeight - 42);
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.4);
+      doc.setFillColor(250, 250, 250);
+      doc.roundedRect(15, sigBoxY, pageWidth - 30, 26, 2, 2, 'FD');
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text("Catatan Evaluasi Mingguan Dokter / Konsultan Nutrisi:", 18, sigBoxY + 5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(148, 163, 184);
+      doc.text("..................................................................................................................................................................................................", 18, sigBoxY + 11);
+      doc.text("..................................................................................................................................................................................................", 18, sigBoxY + 16);
+
+      doc.setFontSize(7);
+      doc.setTextColor(71, 85, 105);
+      doc.text("Tanggal Evaluasi: .......................................", 18, sigBoxY + 22);
+      doc.text("Tanda Tangan & Stempel Faskes: ___________________________", pageWidth - 98, sigBoxY + 22);
+
+      doc.setFontSize(6.2);
+      doc.setTextColor(148, 163, 184);
+      doc.text("Dokumen rapor mingguan ini diterbitkan secara otomatis oleh CaffiSense sebagai instrumen monitoring evaluasi sirkadian.", 15, pageHeight - 5);
+      doc.text("Halaman 2 dari 2", pageWidth - 15, pageHeight - 5, { align: 'right' });
+
+      doc.save(`CaffiSense_RaporMingguan_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error(err);
+      alert("Gagal mencetak PDF Mingguan.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // ─── WEEKLY EXCEL EXPORT (.XLS HTML SPREADSHEET TABLE) ───
+  const exportWeeklyExcel = (metrics: any) => {
+    if (!metrics) {
+      alert("Data mingguan tidak tersedia untuk diekspor.");
+      return;
+    }
+    setShowExportMenu(false);
+
+    try {
+      const avgCaffeine = metrics.avgCaffeine || 0;
+      const bAvg = Math.min(100, Math.round((avgCaffeine / 400) * 80 + (metrics.lateCoffeeCount > 0 ? 15 : 0)));
+      const hAvg = Math.min(100, Math.round((avgCaffeine / 400) * 75 + (metrics.poorDaysCount > 0 ? 10 : 0)));
+      const sAvg = Math.min(100, Math.round((avgCaffeine / 400) * 65 + (metrics.days.some((d: DayMetric) => d.mealStatus === 'belum_makan') ? 20 : 0)));
+      const kAvg = Math.min(100, Math.round((avgCaffeine / 400) * 60));
+      const lAvg = Math.min(100, Math.round((avgCaffeine / 400) * 70));
+      const blAvg = Math.min(100, Math.round((avgCaffeine / 400) * 50 + (metrics.lateCoffeeCount > 0 ? 15 : 0)));
+      const eAvg = Math.min(100, Math.round((avgCaffeine / 400) * 35 + (metrics.avgSleep < 6 ? 20 : 0)));
+      const mAvg = Math.min(100, Math.round((avgCaffeine / 400) * 45));
+
+      const organs = [
+        { name: "Otak & Sistem Saraf", load: bAvg, status: bAvg >= 70 ? 'Hiperstimulasi' : bAvg >= 40 ? 'Waspada' : 'Optimal', desc: "Akumulasi blokade reseptor adenosin dan potensi defisit slow-wave sleep" },
+        { name: "Jantung & Sirkulasi", load: hAvg, status: hAvg >= 70 ? 'Beban Tinggi' : hAvg >= 40 ? 'Waspada' : 'Stabil', desc: "Frekuensi stimulasi katekolamin simpatis mingguan terhadap kontraktilitas miokardium" },
+        { name: "Lambung & Saluran Cerna", load: sAvg, status: sAvg >= 70 ? 'Iritasi Asam' : sAvg >= 40 ? 'Waspada' : 'Normal', desc: "Intensitas sekresi asam lambung HCl berulang, khususnya saat minum tanpa makan" },
+        { name: "Ginjal & Cairan", load: kAvg, status: kAvg >= 70 ? 'Filtrasi Berat' : kAvg >= 40 ? 'Waspada' : 'Aman', desc: "Laju filtrasi glomerulus mingguan dan pembuangan ion metabolit kafein" },
+        { name: "Hati (Enzim CYP1A2)", load: lAvg, status: lAvg >= 70 ? 'Beban Hepatik' : lAvg >= 40 ? 'Waspada' : 'Normal', desc: "Konsistensi beban klirens enzim sitokrom P450 hati dalam mengeliminasi kafein" },
+        { name: "Kandung Kemih", load: blAvg, status: blAvg >= 70 ? 'Risiko Nokturia' : blAvg >= 40 ? 'Waspada' : 'Normal', desc: "Frekuensi desakan berkemih nokturia di jam tidur malam akibat ngopi sore" },
+        { name: "Mata & Saraf Visual", load: eAvg, status: eAvg >= 70 ? 'Kering / Lelah' : eAvg >= 40 ? 'Waspada' : 'Optimal', desc: "Astenopia penglihatan dan dehidrasi lapisan mukosa mata akibat kurang tidur" },
+        { name: "Sistem Otot Somatik", load: mAvg, status: mAvg >= 70 ? 'Ketegangan/Kram' : mAvg >= 40 ? 'Waspada' : 'Relaks', desc: "Kebutuhan relaksasi neuromuskular dan restorasi energi pasca-stimulasi" }
+      ];
+
+      const getBadgeStyle = (load: number) => {
+        if (load >= 70) return 'background-color: #fee2e2; color: #b91c1c; font-weight: bold; text-align: center;';
+        if (load >= 40) return 'background-color: #fef3c7; color: #b45309; font-weight: bold; text-align: center;';
+        return 'background-color: #dcfce7; color: #15803d; font-weight: bold; text-align: center;';
+      };
+
+      const excelHtml = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+  <meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8">
+  <style>
+    body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; font-size: 10.5pt; color: #1e293b; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+    th { border: 1px solid #cbd5e1; padding: 7px 10px; font-weight: bold; }
+    td { border: 1px solid #cbd5e1; padding: 6px 10px; font-size: 10pt; }
+    .header-banner { background-color: #0f172a; color: #ffffff; font-size: 13pt; font-weight: bold; text-align: center; height: 38px; }
+    .section-title { background-color: #334155; color: #ffffff; font-size: 10.5pt; font-weight: bold; padding: 6px 10px; text-align: left; }
+    .th-col { background-color: #f1f5f9; color: #0f172a; font-weight: bold; text-align: left; }
+    .label-col { background-color: #f8fafc; font-weight: bold; color: #334155; width: 200px; }
+    .val-col { width: 280px; }
+  </style>
+</head>
+<body>
+  <table>
+    <tr>
+      <th colspan="7" class="header-banner">CAFFISENSE - RAPOR KLINIS SIRKADIAN MINGGUAN</th>
+    </tr>
+    <tr>
+      <td class="label-col">Nama Pasien / User</td>
+      <td colspan="2" class="val-col">${user?.name || 'Pasien CaffiSense'}</td>
+      <td class="label-col">Periode Evaluasi</td>
+      <td colspan="3" class="val-col">${metrics.weekLabel}</td>
+    </tr>
+    <tr>
+      <td class="label-col">Email / Kontak</td>
+      <td colspan="2" class="val-col">${user?.email || '-'}</td>
+      <td class="label-col">Skor Sirkadian Mingguan</td>
+      <td colspan="3" class="val-col"><b>${metrics.score} / 100</b> (${metrics.scoreCategory})</td>
+    </tr>
+    <tr>
+      <td class="label-col">Rata-Rata Kafein</td>
+      <td colspan="2" class="val-col"><b>${metrics.avgCaffeine} mg/hari</b></td>
+      <td class="label-col">Rata-Rata Tidur</td>
+      <td colspan="3" class="val-col"><b>${metrics.avgSleep} Jam/malam</b> (${metrics.recordedDaysCount} dari 7 hari tercatat)</td>
+    </tr>
+    <tr><td colspan="7" style="height: 12px; border: none;"></td></tr>
+
+    <tr>
+      <th colspan="7" class="section-title">1. REKAPITULASI HARIAN KONSUMSI & POLA ISTIRAHAT (SENIN – MINGGU)</th>
+    </tr>
+    <tr>
+      <th class="th-col" style="width: 140px;">Hari</th>
+      <th class="th-col" style="text-align: center; width: 120px;">Total Kafein</th>
+      <th class="th-col" style="text-align: center; width: 100px;">Cangkir</th>
+      <th class="th-col" style="text-align: center; width: 120px;">Jam Terakhir</th>
+      <th class="th-col" style="width: 140px;">Kondisi Perut</th>
+      <th class="th-col" style="text-align: center; width: 120px;">Durasi Tidur</th>
+      <th class="th-col">Status Sirkadian & Keterangan</th>
+    </tr>
+    ${metrics.days.map((d: DayMetric) => `
+    <tr>
+      <td><b>${d.fullDayName}</b> (${d.dateNumber})</td>
+      <td style="text-align: center; font-weight: bold;">${d.totalCaffeine > 0 ? `${d.totalCaffeine} mg` : '0 mg'}</td>
+      <td style="text-align: center;">${d.cups > 0 ? `${d.cups} cangkir` : '-'}</td>
+      <td style="text-align: center;">${d.lastCoffeeTime ? `pk. ${d.lastCoffeeTime}` : '-'}</td>
+      <td>${d.mealStatus === 'belum_makan' ? 'Perut Kosong' : (d.mealStatus ? 'Sudah Makan' : '-')}</td>
+      <td style="text-align: center;">${d.sleepHours ? `${d.sleepHours} Jam` : '-'}</td>
+      <td style="${d.status === 'poor' ? 'color: #dc2626; font-weight: bold;' : d.status === 'good' ? 'color: #16a34a; font-weight: bold;' : 'color: #64748b;'}">${d.statusLabel}</td>
+    </tr>
+    `).join('')}
+    <tr><td colspan="7" style="height: 12px; border: none;"></td></tr>
+
+    <tr>
+      <th colspan="7" class="section-title">2. PEMETAAN RATA-RATA BEBAN FISIOLOGIS 8 ORGAN TUBUH (MINGGUAN)</th>
+    </tr>
+    <tr>
+      <th class="th-col" colspan="2" style="width: 220px;">Organ Tubuh</th>
+      <th class="th-col" style="width: 140px; text-align: center;">Rerata Beban</th>
+      <th class="th-col" style="width: 140px; text-align: center;">Status Evaluasi</th>
+      <th class="th-col" colspan="3">Keterangan Medis & Dampak Akumulatif</th>
+    </tr>
+    ${organs.map(o => `
+    <tr>
+      <td colspan="2"><b>${o.name}</b></td>
+      <td style="text-align: center; font-weight: bold;">${o.load}%</td>
+      <td style="${getBadgeStyle(o.load)}">${o.status}</td>
+      <td colspan="3">${o.desc}</td>
+    </tr>
+    `).join('')}
+    <tr><td colspan="7" style="height: 12px; border: none;"></td></tr>
+
+    <tr>
+      <th colspan="7" class="section-title">3. LEMBAR CATATAN KONSULTASI DOKTER / AHLI GIZI</th>
+    </tr>
+    <tr>
+      <td class="label-col" colspan="2">Catatan Evaluasi Mingguan</td>
+      <td colspan="5" style="height: 40px; vertical-align: top; color: #94a3b8;">.......................................................................................................................................................................................................</td>
+    </tr>
+    <tr>
+      <td class="label-col" colspan="2">Rekomendasi Terapi & Target Pekan Depan</td>
+      <td colspan="5" style="height: 40px; vertical-align: top; color: #94a3b8;">.......................................................................................................................................................................................................</td>
+    </tr>
+    <tr>
+      <td class="label-col" colspan="2">Tanggal Konsultasi</td>
+      <td colspan="2">........................................................</td>
+      <td class="label-col">Tanda Tangan & Stempel</td>
+      <td colspan="2">______________________________________</td>
+    </tr>
+  </table>
+</body>
+</html>
+      `;
+
+      const blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      const fileDate = new Date().toISOString().split('T')[0];
+      link.setAttribute("download", `CaffiSense_RaporMingguan_${fileDate}.xls`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setShowExportMenu(false);
+    } catch (err) {
+      console.error(err);
+      alert("Gagal mengekspor Excel Mingguan");
+    }
+  };
+
   // Filtered & Sorted History based on viewMode, user search query & chips
   const filteredHistory = useMemo(() => {
     let list = [...sortedHistory];
@@ -596,7 +1630,66 @@ export default function HistoryPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            {/* Export Dropdown Menu (Dynamic for Daily vs Weekly) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                disabled={isExporting || (viewMode === 'daily' && sortedHistory.length === 0) || (viewMode === 'weekly' && !weeklyMetrics)}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 text-gray-700 rounded-xl font-bold text-xs transition border border-gray-200 shadow-2xs disabled:opacity-50 cursor-pointer"
+              >
+                {isExporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5 text-indigo-600" />}
+                <span>{viewMode === 'daily' ? 'Ekspor Laporan Harian' : 'Ekspor Rapor Mingguan'}</span>
+                <ChevronDown className="w-3 h-3 text-gray-400" />
+              </button>
+
+              {showExportMenu && (
+                <div className="absolute top-full right-0 mt-1.5 w-60 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 overflow-hidden">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setShowExportMenu(false);
+                      if (viewMode === 'daily') {
+                        const target = selectedItem || sortedHistory[0];
+                        if (target) exportDailyPDF(target);
+                        else alert("Tidak ada data sesi untuk diekspor.");
+                      } else {
+                        if (weeklyMetrics) exportWeeklyPDF(weeklyMetrics);
+                      }
+                    }} 
+                    className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <div>
+                      <div className="font-bold text-gray-900">{viewMode === 'daily' ? 'Laporan Harian (PDF)' : 'Rapor Mingguan (PDF)'}</div>
+                      <div className="text-[10px] text-gray-400">{viewMode === 'daily' ? 'Format 2 halaman sesi terkini' : 'Konsolidasi 7 hari dalam 1 dokumen'}</div>
+                    </div>
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setShowExportMenu(false);
+                      if (viewMode === 'daily') {
+                        const target = selectedItem || sortedHistory[0];
+                        if (target) exportDailyExcel(target);
+                        else alert("Tidak ada data sesi untuk diekspor.");
+                      } else {
+                        if (weeklyMetrics) exportWeeklyExcel(weeklyMetrics);
+                      }
+                    }} 
+                    className="w-full text-left px-4 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 cursor-pointer border-t border-gray-50"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <div className="font-bold text-gray-900">{viewMode === 'daily' ? 'Tabel Excel Harian (.xls)' : 'Tabel Excel Mingguan (.xls)'}</div>
+                      <div className="text-[10px] text-gray-400">{viewMode === 'daily' ? 'Langsung tabel ber-border' : 'Rekapitulasi 7 hari ber-border'}</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
             <Link
               to="/diagnosis"
               className="bg-gray-950 text-white px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-black transition shadow-xs flex items-center gap-2 cursor-pointer"
@@ -1545,14 +2638,32 @@ export default function HistoryPage() {
 
                         {/* Actions Footer of Card */}
                         <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2.5 border-t border-gray-100">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedItem(item)}
-                            className="w-full sm:w-auto px-3.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-semibold text-xs hover:bg-gray-50 transition flex items-center justify-center gap-1.5 cursor-pointer"
-                          >
-                            <Eye className="w-3.5 h-3.5 text-gray-500" />
-                            <span>Lihat Kurva & Evaluasi</span>
-                          </button>
+                          <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedItem(item)}
+                              className="flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-semibold text-xs hover:bg-gray-50 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-gray-500" />
+                              <span>Lihat Kurva</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => exportDailyPDF(item)}
+                              className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
+                              title="Ekspor Laporan PDF Hari Ini"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => exportDailyExcel(item)}
+                              className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
+                              title="Ekspor Tabel Excel Hari Ini"
+                            >
+                              <FileSpreadsheet className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
 
                           <button
                             type="button"
@@ -1714,24 +2825,47 @@ export default function HistoryPage() {
               </div>
 
               {/* Footer */}
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setSelectedItem(null)}
-                  className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 font-semibold text-xs hover:bg-gray-50 transition cursor-pointer"
-                >
-                  Tutup
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleOpenInInsights(selectedItem);
-                  }}
-                  className="bg-gray-950 text-white px-4 py-2 rounded-xl font-semibold text-xs hover:bg-black transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-                >
-                  <span>Buka di Halaman Insights</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+              <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => exportDailyPDF(selectedItem)}
+                    className="px-3.5 py-2 rounded-xl border border-gray-200 text-gray-700 font-semibold text-xs hover:bg-gray-50 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Cetak Laporan PDF Sesi Ini"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Cetak PDF</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => exportDailyExcel(selectedItem)}
+                    className="px-3.5 py-2 rounded-xl border border-gray-200 text-gray-700 font-semibold text-xs hover:bg-gray-50 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Unduh Tabel Excel Sesi Ini"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Tabel Excel</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedItem(null)}
+                    className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 font-semibold text-xs hover:bg-gray-50 transition cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleOpenInInsights(selectedItem);
+                    }}
+                    className="bg-gray-950 text-white px-4 py-2 rounded-xl font-semibold text-xs hover:bg-black transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <span>Buka di Halaman Insights</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
 
             </div>
