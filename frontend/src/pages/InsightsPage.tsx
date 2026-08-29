@@ -359,12 +359,6 @@ export default function InsightsPage() {
       doc.text(`• Status Hidrasi: Asupan air ${waterIntake} ml ${waterIntake < 1000 ? '(Dehidrasi berat — beban filtrasi ginjal & mata meningkat signifikan).' : '(Hidrasi tercukupi).' }`, 18, sumBoxY + 19.5);
       doc.text(`• Pola Istirahat: Tidur ${result.sleep_duration ? `${result.sleep_duration} Jam (${result.sleep_quality})` : 'tidak dicatat'} ${Number(result.sleep_duration) <= 5 ? '— defisit tidur akut menghambat fase Slow-Wave Sleep.' : ''}`, 18, sumBoxY + 24);
 
-      // Page 1 Transition Notice
-      doc.setFontSize(7.5);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(79, 70, 229); // Indigo-600
-      doc.text("Bersambung ke Halaman 2: Ulasan Lengkap AI & Lembar Catatan/Validasi Dokter  →", pageWidth / 2, sumBoxY + 34, { align: 'center' });
-
       // Page 1 Footer
       doc.setFontSize(6.5);
       doc.setFont('helvetica', 'normal');
@@ -375,55 +369,109 @@ export default function InsightsPage() {
       // ─── HALAMAN 2: ULASAN KLINIS AI & LEMBAR VALIDASI DOKTER ───
       doc.addPage();
 
-      // Header Bar Page 2 (Slate-900)
+      // Header Bar Page 2 (Slate-900) - Dua baris agar tidak bertumpuk
       doc.setFillColor(15, 23, 42);
-      doc.rect(0, 0, pageWidth, 15, 'F');
+      doc.rect(0, 0, pageWidth, 16, 'F');
 
       doc.setFontSize(9.5);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(255, 255, 255);
-      doc.text("CAFFISENSE - EVALUASI MEDIS & LEMBAR VALIDASI KONSULTASI", 15, 10);
+      doc.text("CAFFISENSE - LEMBAR EVALUASI MEDIS & KONSULTASI", 15, 7.5);
 
-      doc.setFontSize(7.5);
+      doc.setFontSize(7.2);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(203, 213, 225);
-      doc.text(`Pasien: ${user?.name || 'Pasien CaffiSense'}   |   Tanggal: ${formattedDate}   |   ${cleanTime}`, pageWidth - 15, 10, { align: 'right' });
+      doc.text(`Pasien: ${user?.name || 'Pasien CaffiSense'}   |   Pemeriksaan: ${formattedDate}   |   Waktu: ${cleanTime}`, 15, 12.5);
 
-      // Section 3: Ulasan Klinis AI (Multi-Line Paginator)
+      // System Accent Dot on Page 2
+      doc.setFillColor(249, 115, 22);
+      doc.circle(pageWidth - 15, 8.5, 2, 'F');
+
+      // Section 3: Ulasan Klinis AI (Poin-Poin Terstruktur & Rata Kanan-Kiri)
       doc.setFontSize(9.5);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(15, 23, 42);
       doc.text("3. Ulasan Klinis & Panduan Pemulihan (Rekomendasi Sistem AI)", 15, 23);
 
-      doc.setFontSize(7.2);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(51, 65, 85);
-
-      let cleanAiText = (result.ai_analysis || "Tidak ada evaluasi AI yang tercatat pada sesi ini.")
+      // Clean & filter raw AI response into structured clinical points
+      const rawLines = (result.ai_analysis || "")
         .replace(/[*#]/g, '')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
-        
-      const aiLines = doc.splitTextToSize(cleanAiText, pageWidth - 30);
-      let currentY = 28;
-      const maxTextY = pageHeight - 45; // Space for Doctor's Signature Box (32mm) + Margin
+        .split('\n')
+        .map((l: string) => l.trim())
+        .filter(Boolean);
 
-      for (let i = 0; i < aiLines.length; i++) {
-        if (currentY > maxTextY) {
-          doc.addPage();
-          doc.setFillColor(15, 23, 42);
-          doc.rect(0, 0, pageWidth, 15, 'F');
-          doc.setFontSize(9.5);
+      const filteredLines = rawLines.filter((line: string) => {
+        const lower = line.toLowerCase();
+        if (line === '---' || line === '***' || line === '___') return false;
+        if (lower.startsWith('halo') || lower.startsWith('terima kasih')) return false;
+        if (lower.startsWith('sebagai praktisi') || lower.startsWith('mari kita bedah')) return false;
+        if (lower.startsWith('profil yang anda') || lower.startsWith('jangan khawatir')) return false;
+        if (lower.startsWith('tubuh anda saat ini sedang mengolah')) return false;
+        if (lower.startsWith('inilah yang sedang dirasakan')) return false;
+        if (lower.startsWith('semoga') || lower.startsWith('salam sehat')) return false;
+        if (lower.startsWith('jika pola kombinasi')) return false;
+        return true;
+      });
+
+      let currentY = 29;
+      const maxTextY = pageHeight - 44; // Space for Doctor's Signature Box (32mm) + Margin
+
+      for (const line of filteredLines) {
+        // Check if it's a section category title (e.g. 1. Analisis ..., 2. Dampak ..., A. Protokol ...)
+        const isHeader = /^\d+\.\s+[A-Za-z]/.test(line) || /^[A-D]\.\s+[A-Za-z]/.test(line);
+
+        if (isHeader) {
+          if (currentY > maxTextY - 8) {
+            doc.addPage();
+            doc.setFillColor(15, 23, 42);
+            doc.rect(0, 0, pageWidth, 16, 'F');
+            doc.setFontSize(9.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(255, 255, 255);
+            doc.text("CAFFISENSE - EVALUASI MEDIS (LANJUTAN)", 15, 7.5);
+            doc.setFontSize(7.2);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(203, 213, 225);
+            doc.text(`Pasien: ${user?.name || 'Pasien CaffiSense'}   |   Pemeriksaan: ${formattedDate}`, 15, 12.5);
+            currentY = 24;
+          } else {
+            currentY += 1.5;
+          }
+
+          doc.setFontSize(7.8);
           doc.setFont('helvetica', 'bold');
-          doc.setTextColor(255, 255, 255);
-          doc.text("CAFFISENSE - EVALUASI MEDIS (LANJUTAN)", 15, 10);
-          currentY = 22;
+          doc.setTextColor(15, 23, 42);
+          doc.text(line, 15, currentY);
+          currentY += 4;
+        } else {
+          // Structured clinical bullet point with justify alignment (Rata Kanan-Kiri)
+          const cleanItem = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
+          const bulletText = `•  ${cleanItem}`;
+
+          const itemLines = doc.splitTextToSize(bulletText, 180);
+          const blockHeight = (itemLines.length * 3.3) + 1.8;
+
+          if (currentY + blockHeight > maxTextY) {
+            doc.addPage();
+            doc.setFillColor(15, 23, 42);
+            doc.rect(0, 0, pageWidth, 16, 'F');
+            doc.setFontSize(9.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(255, 255, 255);
+            doc.text("CAFFISENSE - EVALUASI MEDIS (LANJUTAN)", 15, 7.5);
+            doc.setFontSize(7.2);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(203, 213, 225);
+            doc.text(`Pasien: ${user?.name || 'Pasien CaffiSense'}   |   Pemeriksaan: ${formattedDate}`, 15, 12.5);
+            currentY = 24;
+          }
+
           doc.setFontSize(7.2);
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(51, 65, 85);
+          doc.text(bulletText, 15, currentY, { align: 'justify', maxWidth: 180 });
+          currentY += (itemLines.length * 3.3) + 1.6;
         }
-        doc.text(aiLines[i], 15, currentY);
-        currentY += 3.4;
       }
 
       // LEMBAR CATATAN KONSULTASI DOKTER & TANDA TANGAN (Anchored at Bottom)
