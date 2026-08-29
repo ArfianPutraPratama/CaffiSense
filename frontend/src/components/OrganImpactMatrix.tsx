@@ -701,9 +701,9 @@ export default function OrganImpactMatrix({
             onClick={closeDrawer}
           />
 
-          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
             <div 
-              className={`w-screen max-w-2xl lg:max-w-3xl bg-white shadow-2xl border-l border-gray-200/80 flex flex-col h-full transform transition-transform duration-300 ease-out ${
+              className={`w-screen max-w-full sm:max-w-2xl lg:max-w-3xl bg-white shadow-2xl sm:border-l border-gray-200/80 flex flex-col h-full transform transition-transform duration-300 ease-out ${
                 isDrawerOpen ? 'translate-x-0' : 'translate-x-full'
               }`}
               onClick={(e) => e.stopPropagation()}

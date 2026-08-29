@@ -146,6 +146,9 @@ export default function Diagnosis() {
     fetchHistory();
   }, []);
 
+  // Responsive Mobile Tab Switcher State (< 1024px)
+  const [mobileTab, setMobileTab] = useState<'wizard' | 'charts'>('wizard');
+
   // Step 1: Kopi & Makanan
   const [cups, setCups] = useState<string>(() => prevAssessment?.coffee_cups_per_day?.toString() || '2');
   const [size, setSize] = useState<string>(() => prevAssessment?.coffee_size || 'Sedang');
@@ -559,12 +562,41 @@ export default function Diagnosis() {
 
 
 
+        {/* ─── MOBILE VIEW SWITCHER (VISIBLE ONLY ON MOBILE/TABLET < 1024px) ─── */}
+        <div className="flex lg:hidden items-center p-1.5 bg-white rounded-2xl border border-gray-200/80 shadow-xs mb-4">
+          <button
+            type="button"
+            onClick={() => setMobileTab('wizard')}
+            className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              mobileTab === 'wizard'
+                ? 'bg-gray-950 text-white shadow-xs'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <Coffee className="w-3.5 h-3.5 text-amber-400" />
+            <span>Form Diagnosa ({currentStep}/{totalSteps})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMobileTab('charts')}
+            className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              mobileTab === 'charts'
+                ? 'bg-gray-950 text-white shadow-xs'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Kurva & Anatomi Organ</span>
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
           {/* ══════════════════════════════════════════════════════════
               LEFT SIDE (7 Cols): REAL-TIME CAFFEINE DECAY VISUALIZER 
           ══════════════════════════════════════════════════════════ */}
-          <div className="lg:col-span-7 flex flex-col gap-5">
+          <div className={`lg:col-span-7 flex-col gap-5 ${mobileTab === 'charts' ? 'flex' : 'hidden lg:flex'}`}>
             
             {/* Main Chart Card */}
             <div className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-xs flex flex-col h-[520px]">
@@ -903,7 +935,7 @@ export default function Diagnosis() {
           {/* ══════════════════════════════════════════════════════════
               RIGHT SIDE (5 Cols): MULTI-STEP WIZARD IN CARD
           ══════════════════════════════════════════════════════════ */}
-          <div className="lg:col-span-5 flex flex-col">
+          <div className={`lg:col-span-5 flex-col ${mobileTab === 'wizard' ? 'flex' : 'hidden lg:flex'}`}>
             <div className="bg-white rounded-2xl p-6 sm:p-7 shadow-xs border border-gray-200/80 flex flex-col justify-between min-h-[620px]">
               
               <div>
