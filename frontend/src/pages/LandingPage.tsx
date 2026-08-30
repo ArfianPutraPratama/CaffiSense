@@ -52,42 +52,11 @@ function useScrollAnimation(threshold = 0.15) {
   return { ref, isVisible };
 }
 
-function AnimatedCounter({
-  target,
-  suffix = "",
-  duration = 1800
-}: {
-  target: number;
-  suffix?: string;
-  duration?: number;
-}) {
-  const [count, setCount] = useState(0);
-  const { ref, isVisible } = useScrollAnimation(0.4);
-  useEffect(() => {
-    if (!isVisible) return;
-    let start = 0;
-    const increment = target / (duration / 16);
-    const timer = setInterval(() => {
-      start += increment;
-      if (start >= target) {
-        setCount(target);
-        clearInterval(timer);
-      } else {
-        setCount(Math.floor(start));
-      }
-    }, 16);
-    return () => clearInterval(timer);
-  }, [isVisible, target, duration]);
-  return <span ref={ref}>{count}{suffix}</span>;
-}
-
 export default function LandingPage() {
   const navigate = useNavigate();
   const { isAuthenticated, logout } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [dangerIndex, setDangerIndex] = useState(0);
-  const [safeIndex, setSafeIndex] = useState(0);
 
   useEffect(() => {
     const onScroll = () => setScrollY(window.scrollY);
@@ -108,7 +77,6 @@ export default function LandingPage() {
     navigate("/register");
   };
 
-  const statsSection = useScrollAnimation();
   const introSection = useScrollAnimation();
   const howSection = useScrollAnimation();
   const featuresSection = useScrollAnimation();
