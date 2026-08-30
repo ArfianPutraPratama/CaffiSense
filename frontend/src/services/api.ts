@@ -86,9 +86,20 @@ export const uploadAvatarApi = async (file: File) => {
         },
         body: formData, // FormData automatically sets the correct Content-Type with boundary
     });
-    const result = await response.json();
+
+    if (response.status === 413) {
+        throw new Error('Ukuran foto terlalu besar. Maksimal ukuran file foto adalah 10MB.');
+    }
+
+    let result;
+    try {
+        result = await response.json();
+    } catch {
+        throw new Error(`Server mengembalikan respon ${response.status}. Gagal memproses gambar.`);
+    }
+
     if (!response.ok) {
-        throw new Error(result.message || 'Gagal mengunggah foto profil.');
+        throw new Error(result.message || (result.errors?.avatar ? result.errors.avatar.join(', ') : 'Gagal mengunggah foto profil.'));
     }
     return result;
 };

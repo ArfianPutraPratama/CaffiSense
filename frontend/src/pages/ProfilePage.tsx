@@ -105,13 +105,19 @@ export default function ProfilePage() {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
     
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Ukuran file foto maksimal adalah 10MB. Silakan pilih foto dengan ukuran lebih kecil.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     setIsUploading(true);
     try {
       const res = await uploadAvatarApi(file);
       updateUserSession(res.user);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Gagal mengunggah foto profil');
+      alert(err.message || 'Gagal mengunggah foto profil');
     } finally {
       setIsUploading(false);
       // Reset input so same file can be selected again

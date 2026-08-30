@@ -11,7 +11,11 @@ RUN apk add --no-cache \
     libzip-dev \
     oniguruma-dev \
     mariadb-client \
-    && docker-php-ext-install pdo pdo_mysql mbstring bcmath zip
+    && docker-php-ext-install pdo pdo_mysql mbstring bcmath zip \
+    && cp /usr/local/etc/php/php.ini-production /usr/local/etc/php/php.ini \
+    && echo "upload_max_filesize = 25M" >> /usr/local/etc/php/php.ini \
+    && echo "post_max_size = 25M" >> /usr/local/etc/php/php.ini \
+    && echo "memory_limit = 256M" >> /usr/local/etc/php/php.ini
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
