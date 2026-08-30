@@ -35,7 +35,10 @@ fi
 php artisan config:clear || true
 
 # 5. Create storage symlink safely
+mkdir -p /var/www/html/storage/app/public/avatars
+rm -rf /var/www/html/public/storage
 php artisan storage:link || true
+chmod -R 777 /var/www/html/storage /var/www/html/public/storage
 
 # 6. Run database migrations safely
 php artisan migrate --force || true

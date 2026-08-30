@@ -124,7 +124,22 @@ export default function ProfilePage() {
     return new Date(dateStr).toLocaleDateString('id-ID', { year: 'numeric', month: 'long' });
   };
 
-  const avatarUrl = user?.avatar ? `http://localhost:8000${user.avatar}` : null;
+  const [imgError, setImgError] = useState(false);
+
+  const getAvatarSrc = (avatar?: string | null) => {
+    if (!avatar) return null;
+    // Strip localhost:8000 if previously stored in DB
+    if (avatar.includes('localhost:8000') || avatar.includes('127.0.0.1:8000')) {
+      return avatar.replace(/^https?:\/\/(localhost|127\.0\.0\.1):8000/, '');
+    }
+    return avatar;
+  };
+
+  const avatarUrl = getAvatarSrc(user?.avatar);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [user?.avatar]);
 
   return (
     <DashboardLayout>
@@ -169,8 +184,13 @@ export default function ProfilePage() {
               
               {/* Avatar Container */}
               <div className="relative inline-block mb-4">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="Avatar" className="w-24 h-24 rounded-full object-cover shadow-xs mx-auto border-2 border-gray-200" />
+                {avatarUrl && !imgError ? (
+                  <img 
+                    src={avatarUrl} 
+                    alt="Avatar" 
+                    onError={() => setImgError(true)}
+                    className="w-24 h-24 rounded-full object-cover shadow-xs mx-auto border-2 border-gray-200" 
+                  />
                 ) : (
                   <div className="w-24 h-24 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold text-2xl shadow-xs mx-auto border-2 border-gray-200">
                     {getInitials(user?.name)}

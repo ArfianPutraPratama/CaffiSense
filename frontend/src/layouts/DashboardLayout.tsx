@@ -67,6 +67,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       .toUpperCase();
   };
 
+  const getAvatarSrc = (avatar?: string | null) => {
+    if (!avatar) return null;
+    if (avatar.includes('localhost:8000') || avatar.includes('127.0.0.1:8000')) {
+      return avatar.replace(/^https?:\/\/(localhost|127\.0\.0\.1):8000/, '');
+    }
+    return avatar;
+  };
+
   return (
     <div
       className="min-h-screen flex"
@@ -191,13 +199,21 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {isAuthenticated && user ? (
             <div className="bg-white rounded-2xl md:p-2 lg:p-3 flex items-center justify-center lg:justify-between shadow-2xs border border-gray-100">
               <div className="flex items-center gap-3 min-w-0">
-                <div
-                  className="w-8 h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center font-bold text-xs text-white flex-shrink-0"
-                  style={{ background: '#f97316' }}
-                  title={user.name}
-                >
-                  {getInitials(user.name)}
-                </div>
+                {user.avatar ? (
+                  <img
+                    src={getAvatarSrc(user.avatar) || ''}
+                    alt={user.name}
+                    className="w-8 h-8 lg:w-9 lg:h-9 rounded-full object-cover shadow-xs border border-gray-200 flex-shrink-0"
+                  />
+                ) : (
+                  <div
+                    className="w-8 h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center font-bold text-xs text-white flex-shrink-0"
+                    style={{ background: '#f97316' }}
+                    title={user.name}
+                  >
+                    {getInitials(user.name)}
+                  </div>
+                )}
                 <div className="hidden lg:block flex-1 min-w-0">
                   <div className="text-xs font-bold text-gray-900 truncate">{user.name}</div>
                   <div className="text-[10px] text-gray-400 truncate">{user.email}</div>
@@ -258,10 +274,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             {isAuthenticated && user ? (
               <Link
                 to="/profile"
-                className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white shadow-xs"
-                style={{ background: '#f97316' }}
+                className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white shadow-xs overflow-hidden border border-gray-200"
               >
-                {getInitials(user.name)}
+                {user.avatar ? (
+                  <img src={getAvatarSrc(user.avatar) || ''} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="w-full h-full flex items-center justify-center" style={{ background: '#f97316' }}>
+                    {getInitials(user.name)}
+                  </span>
+                )}
               </Link>
             ) : (
               <Link

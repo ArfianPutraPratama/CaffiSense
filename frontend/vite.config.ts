@@ -12,6 +12,10 @@ export default defineConfig({
         headers: {
           Accept: 'application/json',
         }
+      },
+      '/storage': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
       }
     }
   }
