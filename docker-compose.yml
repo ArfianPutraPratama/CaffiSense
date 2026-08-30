@@ -75,6 +75,8 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    volumes:
+      - caffisense_storage:/usr/share/nginx/html/storage:ro
     ports:
       - "5173:80"
     networks:
