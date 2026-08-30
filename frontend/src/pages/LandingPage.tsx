@@ -24,10 +24,17 @@ import {
   Gauge,
   BedDouble,
   SlidersHorizontal,
-  Layers
+  Layers,
+  Droplet
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import CoffeeCanvas3D from "../components/CoffeeCanvas3D";
+import ResikoImg from './assets_gambar/Resiko.jpg';
+import GayaHidupImg from './assets_gambar/Gaya Hidup.jpg';
+import PembatasImg from './assets_gambar/pembatas.jpg';
+import LogoImg from './assets_gambar/Logo.png';
+import BgPerkenalanImg from './assets_gambar/BG Perkenalan.jpg';
+import BgLoginImg from './assets_gambar/BG Login.jpg';
 
 function useScrollAnimation(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
@@ -79,6 +86,8 @@ export default function LandingPage() {
   const { isAuthenticated, logout } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [dangerIndex, setDangerIndex] = useState(0);
+  const [safeIndex, setSafeIndex] = useState(0);
 
   useEffect(() => {
     const onScroll = () => setScrollY(window.scrollY);
@@ -100,10 +109,13 @@ export default function LandingPage() {
   };
 
   const statsSection = useScrollAnimation();
+  const introSection = useScrollAnimation();
   const howSection = useScrollAnimation();
   const featuresSection = useScrollAnimation();
   const riskSection = useScrollAnimation();
+  const faqSection = useScrollAnimation();
   const ctaSection = useScrollAnimation();
+  const [activeFaq, setActiveFaq] = useState<number | null>(null);
 
   return (
     <>
@@ -164,8 +176,8 @@ export default function LandingPage() {
         {/* ─── NAVIGATION BAR ─── */}
         <header className="h-20 px-6 sm:px-12 flex items-center justify-between border-b border-gray-200/70 bg-[#f7f7f3]/90 backdrop-blur-md sticky top-0 z-40">
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-2xl bg-orange-600 flex items-center justify-center text-white shadow-md shadow-orange-500/20 group-hover:scale-105 transition">
-              <Coffee className="w-5 h-5 stroke-[2.2]" />
+            <div className="w-14 h-14 rounded-2xl bg-white border border-gray-900 flex items-center justify-center shadow-md shadow-gray-200/50 group-hover:scale-105 transition overflow-hidden">
+              <img src={LogoImg} alt="CaffiSense Logo" className="w-[92%] h-[92%] object-contain drop-shadow-sm" />
             </div>
             <div className="flex flex-col">
               <span className="text-lg font-black tracking-tight text-gray-950 leading-none">
@@ -183,10 +195,6 @@ export default function LandingPage() {
             <a href="#risks" className="hover:text-orange-600 transition flex items-center gap-1.5">
               <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
               <span>Risiko Kafein</span>
-            </a>
-            <a href="#sdg3" className="hover:text-orange-600 transition flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>SDG 3 Health</span>
             </a>
           </nav>
 
@@ -361,64 +369,176 @@ export default function LandingPage() {
         </section>
 
         {/* ─── CLINICAL STATS BAR ─── */}
-        <section id="stats" className="py-16 px-6 sm:px-12 bg-gray-950 text-white">
-          <div
-            ref={statsSection.ref}
-            className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center"
-          >
-            {[
-              {
-                icon: ShieldCheck,
-                target: 400,
-                suffix: "mg",
-                label: "Batas Maksimal Harian Aman (FDA)",
-                color: "text-orange-400"
-              },
-              {
-                icon: Clock,
-                target: 5,
-                suffix: " Jam",
-                label: "Waktu Paruh Eliminasi Alami Hati",
-                color: "text-amber-400"
-              },
-              {
-                icon: BedDouble,
-                target: 50,
-                suffix: "mg",
-                label: "Batas Kafein Ideal Memulai Deep Sleep",
-                color: "text-emerald-400"
-              },
-              {
-                icon: Zap,
-                target: 95,
-                suffix: "%",
-                label: "Kafein Terserap Cepat dalam 45 Menit",
-                color: "text-purple-400"
-              }
-            ].map((stat, i) => {
-              const Icon = stat.icon;
-              return (
-                <div
-                  key={stat.label}
-                  className={`space-y-2 hover-lift ${statsSection.isVisible ? "anim-slide-up" : "opacity-0"}`}
-                  style={{ animationDelay: `${i * 0.12}s` }}
-                >
-                  <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 mx-auto flex items-center justify-center text-gray-300 mb-2">
-                    <Icon className="w-5 h-5" />
+        <section id="stats" className="py-16 border-y border-gray-900 relative overflow-hidden">
+          {/* Background Image with Dark Overlay */}
+          <div className="absolute inset-0 z-0">
+            <img src={PembatasImg} alt="Background" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-[#030712]/85"></div>
+          </div>
+          
+          {/* Subtle background glow */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-32 bg-blue-900/10 blur-[100px] rounded-full pointer-events-none z-0"></div>
+          
+          <div className="max-w-6xl mx-auto px-6 sm:px-12 relative z-10">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-4 divide-y lg:divide-y-0 lg:divide-x divide-gray-800/60">
+              {[
+                { label: "Batas Maksimal Harian Aman (FDA)", value: "400mg", color: "text-orange-500", icon: ShieldCheck },
+                { label: "Waktu Paruh Eliminasi Alami Hati", value: "5 Jam", color: "text-yellow-500", icon: Clock },
+                { label: "Batas Kafein Ideal Memulai Deep Sleep", value: "50mg", color: "text-emerald-400", icon: BedDouble },
+                { label: "Kafein Terserap Cepat dalam 45 Menit", value: "95%", color: "text-fuchsia-400", icon: Zap }
+              ].map((stat, idx) => {
+                const Icon = stat.icon;
+                return (
+                  <div key={idx} className={`flex flex-col items-center text-center px-4 ${idx > 1 ? "pt-8 lg:pt-0" : ""} ${idx === 1 ? "pt-8 lg:pt-0 border-t border-gray-800/60 lg:border-t-0" : ""}`}>
+                    <div className="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center text-gray-500 mb-4 border border-gray-800">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div className={`text-4xl font-black ${stat.color} mb-3 tracking-tight`}>
+                      {stat.value}
+                    </div>
+                    <div className="text-[10px] text-gray-400 uppercase tracking-widest font-bold max-w-[200px] mx-auto leading-relaxed">
+                      {stat.label}
+                    </div>
                   </div>
-                  <div className={`text-3xl sm:text-4xl font-black ${stat.color}`}>
-                    {statsSection.isVisible ? (
-                      <AnimatedCounter target={stat.target} suffix={stat.suffix} />
-                    ) : (
-                      `0${stat.suffix}`
-                    )}
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* ─── LATAR BELAKANG & RISIKO KOPI ─── */}
+        <section className="py-24 px-6 sm:px-12 bg-[#f7f7f3] border-b border-gray-200/80">
+          <div className="max-w-6xl mx-auto space-y-16">
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 uppercase tracking-widest bg-red-50 px-3.5 py-1 rounded-full border border-red-100">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Perbandingan Gaya Hidup</span>
+              </div>
+              <h2 className="text-3xl sm:text-5xl font-black text-gray-950 tracking-tight">
+                Berlebih vs Teratur. <br className="hidden sm:block" />
+                <span className="text-orange-600">Pilih Kondisi Tubuhmu.</span>
+              </h2>
+              <p className="text-gray-500 max-w-2xl mx-auto text-base sm:text-lg leading-relaxed">
+                Minum kopi bukanlah masalah, yang menjadi masalah adalah dosis dan waktunya. Perhatikan perbedaan drastis antara mereka yang asal ngopi dan mereka yang teratur.
+              </p>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-6 lg:gap-8 items-stretch">
+              {/* Card 1: Dangers (Red Theme) */}
+              <div className="bg-[#fff5f5] border border-red-100 rounded-3xl p-8 sm:p-10 relative overflow-hidden flex flex-col">
+                <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-red-500/5 rounded-full blur-[80px] -mr-20 -mt-20 pointer-events-none"></div>
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-16 h-16 rounded-2xl bg-red-100 flex items-center justify-center text-red-600 shadow-sm border border-red-200 shrink-0">
+                      <Activity className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-black text-red-950">Peminum Kopi Berlebih</h3>
+                      <p className="text-red-700 font-bold text-sm mt-0.5">Dampak Konsumsi Tak Terkontrol</p>
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-400 font-medium leading-relaxed max-w-[200px] mx-auto">
-                    {stat.label}
+                  
+                  <div className="w-full h-48 sm:h-56 rounded-2xl overflow-hidden mb-6 border border-red-200 shadow-sm">
+                    <img src={ResikoImg} alt="Risiko Kafein Berlebih" className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />
+                  </div>
+                  
+                  <div className="flex flex-col gap-4 mt-4">
+                    {[
+                      { title: "Siklus Tidur Rusak", desc: "Fase Deep Sleep hancur. Otak terus dipaksa melek meski tubuh sudah sangat kelelahan.", icon: Moon },
+                      { title: "Asam Lambung Naik", desc: "Memicu GERD dan iritasi dinding lambung akut karena kelebihan zat asam dari kopi.", icon: Zap },
+                      { title: "Jantung Berdebar", desc: "Mengalami palpitasi (detak jantung tak beraturan) dan rentan terkena serangan panik.", icon: HeartPulse },
+                      { title: "Ketergantungan Energi", desc: "Bangun tidur selalu lelah, butuh dosis kopi lebih tinggi setiap hari untuk sekadar melek.", icon: Brain },
+                    ].map((item, idx) => {
+                      const Icon = item.icon;
+                      return (
+                        <div 
+                          key={idx} 
+                          className="bg-white border border-red-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start gap-4">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-red-50 flex items-center justify-center text-red-500 shrink-0">
+                              <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-gray-900 text-base sm:text-lg mb-1">{item.title}</div>
+                              <div className="text-sm text-gray-600 leading-relaxed">{item.desc}</div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })}
+              </div>
+
+              {/* Card 2: Solution (Emerald Theme) */}
+              <div className="bg-[#f0fdf4] border border-emerald-100 rounded-3xl p-8 sm:p-10 relative overflow-hidden flex flex-col">
+                <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-emerald-500/5 rounded-full blur-[80px] -mr-20 -mt-20 pointer-events-none"></div>
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-200 shrink-0">
+                      <ShieldCheck className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-black text-emerald-950">Peminum Kopi Teratur</h3>
+                      <p className="text-emerald-700 font-bold text-sm mt-0.5">Manfaat Konsumsi Terukur (CaffiSense)</p>
+                    </div>
+                  </div>
+                  
+                  <div className="w-full h-48 sm:h-56 rounded-2xl overflow-hidden mb-6 border border-emerald-200 shadow-sm">
+                    <img src={GayaHidupImg} alt="Gaya Hidup Teratur" className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />
+                  </div>
+                  
+                  <div className="flex flex-col gap-4 mt-4">
+                    {[
+                      { title: "Tidur Lelap & Nyenyak", desc: "Kadar kafein luruh tepat waktu, memungkinkan otak masuk ke fase Deep Sleep secara alami.", icon: Moon },
+                      { title: "Pencernaan Nyaman", desc: "Asam lambung tetap stabil karena minum kopi di waktu yang tepat dan dosis yang wajar.", icon: Activity },
+                      { title: "Fokus & Mood Stabil", desc: "Mendapat manfaat kognitif kopi secara maksimal tanpa memicu kecemasan berlebih (Anxiety).", icon: Sparkles },
+                      { title: "Energi Alami Terjaga", desc: "Bangun tidur dengan tubuh segar bugar tanpa harus langsung bergantung pada secangkir kopi.", icon: Clock },
+                    ].map((item, idx) => {
+                      const Icon = item.icon;
+                      return (
+                        <div 
+                          key={idx} 
+                          className="bg-white border border-emerald-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start gap-4">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500 shrink-0">
+                              <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-gray-900 text-base sm:text-lg mb-1">{item.title}</div>
+                              <div className="text-sm text-gray-600 leading-relaxed">{item.desc}</div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ─── MEMPERKENALKAN CAFFISENSE ─── */}
+        <section className="py-24 px-6 sm:px-12 border-t border-gray-200/80 relative overflow-hidden">
+          {/* Background Image with Dark Overlay */}
+          <div className="absolute inset-0 z-0">
+            <img src={BgPerkenalanImg} alt="Background Perkenalan" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gray-950/70 backdrop-blur-[1px]"></div>
+          </div>
+
+          <div ref={introSection.ref} className={`max-w-4xl mx-auto text-center space-y-6 relative z-10 ${introSection.isVisible ? "anim-slide-up" : "opacity-0"}`}>
+            <div className="w-20 h-20 rounded-[2rem] bg-white border border-gray-900 mx-auto flex items-center justify-center shadow-lg shadow-black/20 overflow-hidden">
+              <img src={LogoImg} alt="CaffiSense Logo" className="w-[85%] h-[85%] object-contain drop-shadow-md" />
+            </div>
+            <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight drop-shadow-md">
+              Kendalikan Konsumsi, <br className="hidden sm:block" /> Maksimalkan <span className="text-orange-500">Produktivitasmu</span>.
+            </h2>
+            <p className="text-base sm:text-lg text-gray-300 font-medium max-w-2xl mx-auto leading-relaxed drop-shadow-sm">
+              CaffiSense adalah platform asisten cerdas yang memantau kadar kafein di tubuhmu secara real-time. Kami membantu mencegah insomnia dan gangguan tidur kronis agar kamu bisa tetap fokus bekerja sepanjang hari tanpa mengorbankan waktu istirahat di malam hari.
+            </p>
           </div>
         </section>
 
@@ -523,7 +643,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-24">
               {[
                 {
                   icon: BarChart3,
@@ -558,7 +678,7 @@ export default function LandingPage() {
                 {
                   icon: BedDouble,
                   title: "Kalkulator Jam Tidur Aman",
-                  desc: "Menghitung secara presisi jam kapan kadar kafein di pembuluh darahmu berada di zona aman (&lt;50mg) untuk terlelap nyenyak.",
+                  desc: "Menghitung secara presisi jam kapan kadar kafein di pembuluh darahmu berada di zona aman (<50mg) untuk terlelap nyenyak.",
                   badge: "Circadian Sync"
                 }
               ].map((feature, i) => {
@@ -586,6 +706,107 @@ export default function LandingPage() {
                   </div>
                 );
               })}
+            </div>
+
+            {/* Interactive Anatomy Silhouette */}
+            <div className={`bg-white rounded-[2.5rem] border border-gray-200/80 p-8 md:p-12 shadow-sm overflow-hidden relative ${featuresSection.isVisible ? "anim-slide-up" : "opacity-0"}`} style={{ animationDelay: '0.4s' }}>
+              <div className="text-center mb-12 relative z-10">
+                <div className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 uppercase tracking-widest bg-rose-50 px-3.5 py-1 rounded-full border border-rose-100 mb-4">
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>Pemetaan Dampak Sistemik</span>
+                </div>
+                <h3 className="text-2xl sm:text-3xl font-black text-gray-900 mb-2">Anatomi Residu Kafein</h3>
+                <p className="text-gray-500 text-sm max-w-md mx-auto">Arahkan kursor ke titik hotspot untuk melihat reaksi organ tubuh saat terjadi kelebihan dosis kafein.</p>
+              </div>
+
+              <div className="relative w-full max-w-3xl mx-auto h-[480px] sm:h-[550px] flex items-center justify-center">
+                {/* Silhouette SVG Background */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-orange-200 opacity-60">
+                  <svg viewBox="0 0 200 500" className="h-full w-auto drop-shadow-xl" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="100" cy="35" r="28" />
+                    <path d="M 55 75 
+                             C 74 65, 126 65, 145 75 
+                             C 158 80, 172 95, 178 110 
+                             L 197 240 
+                             C 200 250, 185 255, 178 245 
+                             L 145 125 
+                             C 145 150, 152 180, 152 220 
+                             L 137 460 
+                             C 135 480, 108 480, 108 460 
+                             L 100 290 
+                             L 92 460 
+                             C 92 480, 65 480, 63 460 
+                             L 48 220 
+                             C 48 180, 55 150, 55 125 
+                             L 22 245 
+                             C 15 255, 0 250, 3 240 
+                             L 22 110 
+                             C 28 95, 42 80, 55 75 Z" />
+                  </svg>
+                </div>
+
+                {/* Central Nervous System glowing line */}
+                <div className="absolute top-[10%] bottom-[15%] w-1.5 bg-gradient-to-b from-purple-400 via-orange-400 to-cyan-400 rounded-full opacity-40 shadow-[0_0_20px_rgba(168,85,247,0.5)]"></div>
+
+                {/* Hotspots */}
+                <div className="absolute inset-0 z-10 font-sans">
+                  {/* 1. Otak */}
+                  <div className="absolute top-[6%] left-1/2 group z-40">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3">
+                      <div className="w-14 h-14 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 shadow-lg border-[3px] border-white cursor-pointer relative hover:scale-110 transition-transform z-10 shrink-0">
+                        <Brain className="w-6 h-6" />
+                        <span className="absolute inset-0 rounded-full animate-ping bg-purple-400 opacity-30 duration-1000"></span>
+                      </div>
+                      <div className="w-56 sm:w-64 bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-xl border border-purple-100 opacity-0 -translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 text-center pointer-events-none">
+                        <div className="text-sm font-black text-gray-900 mb-1">🧠 Otak</div>
+                        <div className="text-xs text-gray-600 font-medium leading-relaxed">Reseptor Adenosin terblokir. Menunda sinyal kantuk dan kelelahan, memaksa otak terus waspada.</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* 2. Jantung */}
+                  <div className="absolute top-[24%] left-1/2 translate-x-[15px] sm:translate-x-[25px] group z-30">
+                    <div className="absolute top-0 left-0 flex items-center gap-4 flex-row w-max">
+                      <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center text-red-600 shadow-lg border-[3px] border-white cursor-pointer relative hover:scale-110 transition-transform z-10 shrink-0">
+                        <HeartPulse className="w-6 h-6" />
+                        <span className="absolute inset-0 rounded-full animate-ping bg-red-400 opacity-30 duration-1000" style={{ animationDelay: '0.2s' }}></span>
+                      </div>
+                      <div className="w-48 sm:w-56 bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-xl border border-red-100 opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-left pointer-events-none">
+                        <div className="text-sm font-black text-gray-900 mb-1">❤️ Jantung</div>
+                        <div className="text-xs text-gray-600 font-medium leading-relaxed">Terjadi palpitasi (berdebar tidak beraturan) dan memicu lonjakan detak jantung (Tachycardia).</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Lambung */}
+                  <div className="absolute top-[40%] left-1/2 -translate-x-[15px] sm:-translate-x-[25px] group z-30">
+                    <div className="absolute top-0 right-0 flex items-center gap-4 flex-row-reverse w-max">
+                      <div className="w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 shadow-lg border-[3px] border-white cursor-pointer relative hover:scale-110 transition-transform z-10 shrink-0">
+                        <Activity className="w-6 h-6" />
+                        <span className="absolute inset-0 rounded-full animate-ping bg-orange-400 opacity-30 duration-1000" style={{ animationDelay: '0.4s' }}></span>
+                      </div>
+                      <div className="w-48 sm:w-56 bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-xl border border-orange-100 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-right pointer-events-none">
+                        <div className="text-sm font-black text-gray-900 mb-1">🫁 Lambung</div>
+                        <div className="text-xs text-gray-600 font-medium leading-relaxed">Asam lambung naik drastis (GERD), terutama saat minum kopi di kondisi perut kosong.</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. Ginjal */}
+                  <div className="absolute top-[58%] left-1/2 group z-20">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3">
+                      <div className="w-14 h-14 rounded-full bg-cyan-100 flex items-center justify-center text-cyan-600 shadow-lg border-[3px] border-white cursor-pointer relative hover:scale-110 transition-transform z-10 shrink-0">
+                        <Droplet className="w-6 h-6" />
+                        <span className="absolute inset-0 rounded-full animate-ping bg-cyan-400 opacity-30 duration-1000" style={{ animationDelay: '0.6s' }}></span>
+                      </div>
+                      <div className="w-56 sm:w-64 bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-xl border border-cyan-100 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 text-center pointer-events-none">
+                        <div className="text-sm font-black text-gray-900 mb-1">🩸 Ginjal</div>
+                        <div className="text-xs text-gray-600 font-medium leading-relaxed">Memicu efek diuretik berat (sering buang air kecil) yang berisiko menyebabkan dehidrasi kronis.</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -700,28 +921,81 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ─── SDG 3 SECTION ─── */}
-        <section id="sdg3" className="py-20 px-6 sm:px-12 bg-[#f7f7f3] border-t border-gray-200/80">
-          <div className="max-w-4xl mx-auto bg-white rounded-3xl p-8 sm:p-10 border border-gray-200/80 shadow-sm flex flex-col md:flex-row items-center gap-8 hover-lift">
-            <div className="w-16 h-16 rounded-3xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-600/20">
-              <HeartPulse className="w-8 h-8 stroke-[2.2]" />
-            </div>
-            <div className="space-y-2 text-center md:text-left">
-              <span className="text-[10px] font-extrabold uppercase tracking-widest bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full border border-emerald-100 inline-block">
-                Komitmen Kesehatan Global
-              </span>
-              <h3 className="text-2xl font-black text-gray-950">Mendukung SDG 3: Good Health &amp; Well-being</h3>
-              <p className="text-xs text-gray-600 leading-relaxed">
-                CaffiSense berkontribusi dalam mengedukasi masyarakat terhadap pentingnya menjaga pola istirahat berkualitas dan membatasi konsumsi stimulan berlebih untuk mencegah gangguan tidur kronis serta kelelahan mental.
+        {/* ─── FAQ / Q&A SECTION ─── */}
+        <section className="py-24 px-6 sm:px-12 bg-[#f9faf6] border-t border-gray-200/80">
+          <div ref={faqSection.ref} className="max-w-4xl mx-auto space-y-12">
+            <div className={`text-center space-y-3 ${faqSection.isVisible ? "anim-slide-up" : "opacity-0"}`}>
+              <h2 className="text-3xl sm:text-4xl font-black text-gray-950 tracking-tight">
+                Tanya Jawab Seputar CaffiSense
+              </h2>
+              <p className="text-sm text-gray-500 max-w-lg mx-auto leading-relaxed">
+                Pahami lebih dalam mengapa platform ini penting untuk kesehatanmu.
               </p>
+            </div>
+
+            <div className="space-y-4">
+              {[
+                {
+                  q: "Sebenarnya website ini isinya apa?",
+                  a: "CaffiSense adalah platform kesehatan preventif cerdas yang memadukan kalkulator farmakokinetik dan kecerdasan buatan (AI). Kami membantu melacak seberapa banyak sisa kafein di tubuhmu secara real-time, lalu memprediksi kapan tubuhmu benar-benar siap untuk memasuki fase Deep Sleep tanpa gangguan residu stimulan."
+                },
+                {
+                  q: "Apa manfaat utama menggunakan CaffiSense?",
+                  a: "Mencegah insomnia kronis dan kelelahan mental (burnout). Dengan mengetahui batasan aman konsumsi dan waktu yang tepat untuk berhenti minum kopi, kamu bisa menjaga ritme sirkadian tubuhmu agar tetap sinkron. Hasilnya: tidur lebih nyenyak, bangun lebih segar, dan imunitas tubuh terjaga."
+                },
+                {
+                  q: "Apakah platform ini melarang saya minum kopi?",
+                  a: "Tentu tidak! CaffiSense dibuat bukan untuk melarang minum kopi, melainkan mengedukasi cara mengonsumsi kopi yang strategis. Kami ingin kamu tetap produktif dan energik di siang hari, namun juga sukses mendapatkan istirahat yang berkualitas di malam hari."
+                },
+                {
+                  q: "Bagaimana cara CaffiSense tahu kadar kafein saya?",
+                  a: "Kami menggunakan formula waktu paruh eliminasi medis (rata-rata 5 jam) berdasarkan standar kesehatan. Dengan memasukkan jam minum dan dosis (cangkir/es kopi), sistem akan melakukan simulasi matematika untuk memetakan grafik penurunan kadar kafein hingga mencapai batas aman tidur (<50mg)."
+                }
+              ].map((faq, i) => {
+                const isActive = activeFaq === i;
+                return (
+                  <div 
+                    key={i} 
+                    className={`bg-white border border-gray-200/80 rounded-2xl p-6 cursor-pointer hover:shadow-md hover:border-orange-200/60 transition-all duration-300 ${faqSection.isVisible ? "anim-slide-up" : "opacity-0"}`}
+                    style={{ animationDelay: `${0.1 + (i * 0.1)}s` }}
+                    onClick={() => setActiveFaq(isActive ? null : i)}
+                  >
+                    <h3 className="text-lg font-bold text-gray-900 flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <span className="text-orange-500 font-black">Q.</span>
+                        <span className="leading-snug">{faq.q}</span>
+                      </div>
+                      <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-300 shrink-0 ${isActive ? "rotate-180 text-orange-500" : ""}`} />
+                    </h3>
+                    <div 
+                      className={`grid transition-all duration-300 ease-in-out ${isActive ? "grid-rows-[1fr] opacity-100 mt-4" : "grid-rows-[0fr] opacity-0"}`}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="text-gray-600 text-sm leading-relaxed flex items-start gap-3 pt-4 border-t border-gray-100">
+                          <span className="text-emerald-500 font-black">A.</span>
+                          <p>{faq.a}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
 
+        {/* SDG Section Removed */}
+
         {/* ─── FINAL CTA SECTION ─── */}
-        <section className="py-24 px-6 sm:px-12 bg-gray-950 text-white relative overflow-hidden">
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[320px] bg-orange-950/40 rounded-full blur-[100px]" />
+        <section className="py-24 px-6 sm:px-12 relative overflow-hidden text-white border-t border-gray-900">
+          {/* Background Image with Dark Overlay */}
+          <div className="absolute inset-0 z-0">
+            <img src={BgLoginImg} alt="Background CTA" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gray-950/80 backdrop-blur-[2px]"></div>
+          </div>
+
+          <div className="absolute inset-0 pointer-events-none z-0">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[320px] bg-orange-900/30 rounded-full blur-[100px]" />
           </div>
 
           <div
@@ -730,15 +1004,15 @@ export default function LandingPage() {
               ctaSection.isVisible ? "anim-slide-up" : "opacity-0"
             }`}
           >
-            <div className="w-14 h-14 rounded-3xl bg-orange-600 text-white mx-auto flex items-center justify-center shadow-lg shadow-orange-600/30">
-              <Coffee className="w-7 h-7 stroke-[2.2]" />
+            <div className="w-24 h-24 rounded-[2rem] bg-white border border-gray-900 mx-auto flex items-center justify-center shadow-xl shadow-black/30 overflow-hidden">
+              <img src={LogoImg} alt="CaffiSense Logo" className="w-[92%] h-[92%] object-contain drop-shadow-md" />
             </div>
 
             <div className="space-y-3">
-              <h2 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
+              <h2 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight drop-shadow-lg">
                 Sudah tahu berapa kafein<br />di tubuhmu saat ini?
               </h2>
-              <p className="text-sm text-gray-400 max-w-lg mx-auto leading-relaxed">
+              <p className="text-sm text-gray-300 font-medium max-w-lg mx-auto leading-relaxed drop-shadow-sm">
                 Mulai skrining mandiri secara gratis. Cukup masukkan data konsumsi kopimu untuk mendapatkan visualisasi dan analisis lengkap.
               </p>
             </div>
@@ -768,9 +1042,9 @@ export default function LandingPage() {
         {/* ─── FOOTER ─── */}
         <footer className="bg-gray-950 text-gray-400 py-12 px-6 sm:px-12 border-t border-gray-800/60 text-xs">
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3 text-white font-black text-base">
-              <div className="w-7 h-7 rounded-xl bg-orange-600 flex items-center justify-center text-white text-xs">
-                <Coffee className="w-4 h-4" />
+            <div className="flex items-center gap-4 text-white font-black text-base">
+              <div className="w-12 h-12 rounded-xl bg-white border border-gray-900 flex items-center justify-center shadow-md overflow-hidden">
+                <img src={LogoImg} alt="CaffiSense Logo" className="w-[92%] h-[92%] object-contain" />
               </div>
               <span>CaffiSense Platform</span>
             </div>
