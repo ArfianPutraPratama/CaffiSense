@@ -586,6 +586,7 @@ Beban fisiologis organ dievaluasi secara dinamis menggunakan formula berbasis in
 ## 👨💻 Pengembang & Lisensi
 
 * **Nama Pengembang**: Arfian Putra Pratama
-* **Afiliasi**: Program Studi S1 Teknik Informatika — Universitas Negeri Surabaya (UNESA)
+* **Afiliasi**: Program Studi D4 Manajemen Informatika — Universitas Negeri Surabaya (UNESA)
 * **Email Kontak**: `arfian.23001@mhs.unesa.ac.id` / `pianprams3@gmail.com`
+* **login email dan password**:`arfian.23001@mhs.unesa.ac.id` / `password123`
 * **Lisensi**: Proyek ini dirilis di bawah lisensi terbuka [MIT License](LICENSE).
