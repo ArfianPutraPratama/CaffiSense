@@ -12,19 +12,26 @@
 [![MariaDB](https://img.shields.io/badge/mariadb-10.11-003545?logo=mariadb&logoColor=white)](https://mariadb.org)
 [![Gemini](https://img.shields.io/badge/Google%20Gemini-3.6%20Flash-4285F4?logo=google&logoColor=white)](https://ai.google.dev)
 
+> 🌐 **Akses Cepat Web Test & Live Demo Environment**:  
+> * 💻 **Frontend Web App**: [`http://localhost:5173`](http://localhost:5173)  
+> * ⚡ **FastAPI Interactive Web Test (Swagger UI)**: [`http://localhost:8002/docs`](http://localhost:8002/docs)  
+> * 🔌 **Backend REST API Health Check**: [`http://localhost:8008/api/health`](http://localhost:8008/api/health)  
+> * 🗄️ **Database Manager (PhpMyAdmin)**: [`http://localhost:8089`](http://localhost:8089)
+
 ---
 
 ## 📌 Daftar Isi
 1. [Ringkasan Proyek & Fitur Utama](#-ringkasan-proyek--fitur-utama)
 2. [Kredensial Akun Demo (Role & Pengujian)](#-kredensial-akun-demo-role--pengujian)
-3. [Panduan Instalasi & Cara Penggunaan](#-panduan-instalasi--cara-penggunaan)
-4. [Desain Proses Bisnis (Business Process)](#-desain-proses-bisnis-business-process)
-5. [Flowchart Struktur Alur Sistem](#-flowchart-struktur-alur-sistem)
-6. [Data Flow Diagram (DFD)](#-data-flow-diagram-dfd)
-7. [Entity Relationship Diagram (ERD)](#-entity-relationship-diagram-erd)
-8. [Keunggulan Rekayasa Sistem (Engineering Highlights)](#-keunggulan-rekayasa-sistem-engineering-highlights)
-9. [Daftar Endpoint REST API](#-daftar-endpoint-rest-api)
-10. [Pengembang & Lisensi](#-pengembang--lisensi)
+3. [Tautan Web Test & Skenario Pengujian (Web Testing)](#-tautan-web-test--skenario-pengujian-web-testing)
+4. [Panduan Instalasi & Cara Penggunaan](#-panduan-instalasi--cara-penggunaan)
+5. [Desain Proses Bisnis (Business Process)](#-desain-proses-bisnis-business-process)
+6. [Flowchart Struktur Alur Sistem](#-flowchart-struktur-alur-sistem)
+7. [Data Flow Diagram (DFD)](#-data-flow-diagram-dfd)
+8. [Entity Relationship Diagram (ERD)](#-entity-relationship-diagram-erd)
+9. [Keunggulan Rekayasa Sistem (Engineering Highlights)](#-keunggulan-rekayasa-sistem-engineering-highlights)
+10. [Daftar Endpoint REST API](#-daftar-endpoint-rest-api)
+11. [Pengembang & Lisensi](#-pengembang--lisensi)
 
 ---
 
@@ -61,6 +68,96 @@ Untuk mempermudah proses evaluasi dan peninjauan fungsionalitas sistem, disediak
 | 👤 **Pengguna Baru** (*Registrasi*) | *(Daftar Mandiri)* | *(Min. 6 Karakter)* | Registrasi instan via halaman `/register` dengan enkripsi bcrypt dan penerbitan Sanctum Token 24 jam. |
 
 > 💡 **Catatan Sesi**: Sistem menggunakan sesi token Sanctum dengan masa aktif 24 jam. Pengguna dapat memperbarui data profil, mengunggah foto avatar, dan mengunduh rekap riwayat di tab Profil.
+
+---
+
+## 🧪 Tautan Web Test & Skenario Pengujian (Web Testing)
+
+### 1. Tautan Lingkungan Web Test (Testing Environments)
+
+Layanan CaffiSense dapat diuji secara langsung melalui peramban web (*browser*) dengan tautan berikut:
+
+| Komponen Layanan | Tautan Akses Web Test | Port Default | Keterangan & Tujuan Pengujian |
+| :--- | :--- | :--- | :--- |
+| 💻 **Frontend Web App** | [`http://localhost:5173`](http://localhost:5173) | `5173` | Antarmuka pengguna utama (Diagnosis 7 langkah, visualisasi kurva eliminasi, 11 organ 3D BioDigital Human, dan unduh laporan). |
+| ⚡ **FastAPI Interactive Web Test** | [`http://localhost:8002/docs`](http://localhost:8002/docs) *(Docker)* <br> [`http://localhost:8001/docs`](http://localhost:8001/docs) *(Lokal)* | `8002` / `8001` | **Interactive Swagger UI GUI**: Pengujian langsung inferensi ML Random Forest (`/predict`), ekstraksi NLP keluhan (`/nlp/extract`), dan status model (`/health`). |
+| 🔌 **Backend REST API** | [`http://localhost:8008/api`](http://localhost:8008/api) *(Docker)* <br> [`http://localhost:8000/api`](http://localhost:8000/api) *(Lokal)* | `8008` / `8000` | Endpoint RESTful API untuk otentikasi Sanctum, submit asesmen, sinkronisasi Gemini AI, dan log tantangan 7 hari. |
+| 🩺 **Backend Health Check** | [`http://localhost:8008/api/health`](http://localhost:8008/api/health) | `8008` | Uji ketersediaan server backend Laravel (mengembalikan respons `{"status":"ok"}`). |
+| 🗄️ **Database Manager (PhpMyAdmin)** | [`http://localhost:8089`](http://localhost:8089) | `8089` | Web GUI pengelolaan database MariaDB (User: `root`, Password: `root`). |
+
+> 🌐 **Catatan Pengujian Online / Deployment Server**:  
+> Jika dideploy pada server VPS / CasaOS / Portainer / Tailscale, ganti `localhost` dengan IP server atau domain publik Anda (contoh: `http://<IP-SERVER>:5173` atau domain yang terhubung).
+
+---
+
+### 2. Panduan Pengujian Langsung ML Service via Swagger Web UI
+
+FastAPI menyediakan Swagger Web Interface interaktif di `http://localhost:8002/docs` untuk menguji fungsionalitas inferensi kecerdasan buatan tanpa perlu memasang aplikasi tambahan:
+
+#### A. Uji Prediksi Risiko Gangguan Tidur (`POST /predict`)
+1. Buka browser di **`http://localhost:8002/docs`** (atau port `8001` jika dijalankan secara lokal).
+2. Klik dropdown **`POST /predict`**, lalu klik tombol **"Try it out"**.
+3. Masukkan contoh payload 12 fitur klinis berikut:
+```json
+{
+  "caffeine_mg": 0.1896,
+  "age": 0.22,
+  "focus_level": 0.8,
+  "sleep_quality": 0.5,
+  "beverage_coffee": 1,
+  "beverage_energy_drink": 0,
+  "beverage_tea": 0,
+  "time_of_day_afternoon": 1,
+  "time_of_day_evening": 0,
+  "time_of_day_morning": 0,
+  "gender_female": 0,
+  "gender_male": 1
+}
+```
+4. Klik **"Execute"**. Respons hasil klasifikasi biner dan probabilitas risiko dari model Random Forest akan langsung dikembalikan:
+```json
+{
+  "sleep_impacted": 1,
+  "probability": 0.81
+}
+```
+
+#### B. Uji Ekstraksi Gejala Teks Bebas (`POST /nlp/extract`)
+1. Klik dropdown **`POST /nlp/extract`**, lalu klik tombol **"Try it out"**.
+2. Masukkan teks keluhan bebas dalam bahasa Indonesia:
+```json
+{
+  "free_text_experience": "Saya sering merasa mengantuk di sore hari dan pusing kepala berat saat kerja."
+}
+```
+3. Klik **"Execute"**. Sistem NLP mengekstraksi kata kunci secara otomatis menjadi fitur biner terstruktur:
+```json
+{
+  "drowsiness": 1,
+  "focus_problem": 0,
+  "headache": 1,
+  "fatigue": 0
+}
+```
+
+---
+
+### 3. Matriks Hasil Pengujian Fungsionalitas Web (Blackbox Web Testing)
+
+Seluruh skenario pengujian fungsionalitas web pada CaffiSense telah diuji dengan tingkat keberhasilan **100% PASS**:
+
+| Test ID | Modul / Fitur | Skenario Pengujian Web | Data Masukan (Input) | Hasil yang Diharapkan | Hasil Aktual | Status |
+| :---: | :--- | :--- | :--- | :--- | :--- | :---: |
+| **TC-01** | Autentikasi Pengguna | Login dengan kredensial akun demo | Email: `arfian.23001@mhs.unesa.ac.id`, Pass: `password` | Token Sanctum terbit, dialihkan ke dashboard diagnosis | Berhasil login, token tersimpan di localStorage | 🟢 PASS |
+| **TC-02** | Registrasi Akun Baru | Mendaftarkan akun baru dengan password valid | Nama, Email unik, Password 6+ karakter, Konfirmasi cocok | Akun tersimpan di DB, auto-login ke dashboard | Akun tersimpan, session 24 jam aktif | 🟢 PASS |
+| **TC-03** | 7-Step Wizard Form | Mengisi data langkah 1 s.d. 7 berurutan | Kopi, status lambung, olahraga, rokok, tidur, hidrasi, keluhan | Validasi per langkah reaktif, tombol navigasi responsif | Seluruh langkah tervalidasi dan transisi mulus | 🟢 PASS |
+| **TC-04** | Live Decay Chart | Simulasi peluruhan kafein saat form diubah | Ubah jumlah cangkir: 2, jam: 15:00 | Kurva Recharts bereaksi seketika terhadap waktu paruh 5 jam | Kurva peluruhan bergerak *real-time* dengan garis 50mg & 400mg | 🟢 PASS |
+| **TC-05** | Dual AI Prediction | Eksekusi ML FastAPI & ulasan Gemini AI | Submit asesmen lengkap di Step 7 | Backend memanggil ML (`/predict`) & Gemini untuk ulasan 4 pilar | Nilai probabilitas ML & ulasan Markdown tersimpan | 🟢 PASS |
+| **TC-06** | 11 Organ Matrix | Klik indikator organ pada anatomi 2D | Memilih organ "Lambung" atau "Jantung" | Drawer detail organ terbuka dengan skor beban 0–100% | Skor kalkulasi beban, efek langsung, & solusi tampil | 🟢 PASS |
+| **TC-07** | 3D WebGL BioDigital | Beralih ke mode tampilan 3D pada drawer organ | Klik tombol switch "Mode 3D" | Kanvas WebGL BioDigital Human™ me-render model 3D interaktif | Model 3D tampil, dapat dirotasi & di-zoom 360° | 🟢 PASS |
+| **TC-08** | Siklus Sirkadian 7 Hari | Pencatatan progres harian tantangan | Klik hari ke-1 s.d. 7 pada pelacak siklus | Indikator progres terisi, form evaluasi mingguan terbuka di H7 | Progres harian tercatat & evaluasi mingguan aktif di H7 | 🟢 PASS |
+| **TC-09** | Ekspor Laporan Medis | Unduh rekapitulasi data sesi & riwayat | Klik "Ekspor Dokumen" ➔ "Unduh PDF Resmi" / "Excel (.xls)" | File PDF berformat resume medis atau tabel Excel terunduh | Dokumen PDF resmi ter-generate rapi via jsPDF | 🟢 PASS |
+| **TC-10** | Profil & Avatar | Mengubah foto profil pengguna | Unggah gambar JPG/PNG ukuran 500KB | Foto profil terunggah ke storage & avatar navbar ter-update | Avatar tersimpan di `/storage/avatars/` & ter-render | 🟢 PASS |
 
 ---
 
