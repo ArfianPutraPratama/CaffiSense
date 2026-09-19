@@ -11,9 +11,12 @@
 [![Python](https://img.shields.io/badge/python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![MariaDB](https://img.shields.io/badge/mariadb-10.11-003545?logo=mariadb&logoColor=white)](https://mariadb.org)
 [![Gemini](https://img.shields.io/badge/Google%20Gemini-3.6%20Flash-4285F4?logo=google&logoColor=white)](https://ai.google.dev)
+[![Live Website](https://img.shields.io/badge/website-caffisense.my.id-FF6B6B?logo=google-chrome&logoColor=white)](https://caffisense.my.id/)
 
-> 🌐 **Akses Cepat Web Test & Live Demo Environment**:  
-> * 💻 **Frontend Web App**: [`http://localhost:5173`](http://localhost:5173)  
+> 🌐 **Live Web Demo & Testing Environment**:  
+> * 🚀 **Aplikasi Web Publik (Official Live)**: [**https://caffisense.my.id/**](https://caffisense.my.id/)  
+> * 🔑 **Akun Demo Siap Pakai**: `arfian.23001@mhs.unesa.ac.id` / `password123`  
+> * 💻 **Aplikasi Web Lokal (Dev)**: [`http://localhost:5173`](http://localhost:5173)  
 > * ⚡ **FastAPI Interactive Web Test (Swagger UI)**: [`http://localhost:8002/docs`](http://localhost:8002/docs)  
 > * 🔌 **Backend REST API Health Check**: [`http://localhost:8008/api/health`](http://localhost:8008/api/health)  
 > * 🗄️ **Database Manager (PhpMyAdmin)**: [`http://localhost:8089`](http://localhost:8089)
@@ -59,15 +62,18 @@ Dengan memadukan model **Machine Learning klasifikasi prediktif** (Random Forest
 
 ## 👥 Kredensial Akun Demo (Role & Pengujian)
 
-Untuk mempermudah proses evaluasi dan peninjauan fungsionalitas sistem, disediakan akun pengujian siap pakai:
+Untuk mempermudah proses evaluasi dan peninjauan fungsionalitas sistem di lingkungan live maupun lokal, disediakan akun pengujian siap pakai:
 
 | Tipe Akun | Alamat Email | Password | Data Awal & Akses Fitur |
 | :--- | :--- | :--- | :--- |
-| 🧑💻 **Demo User Utama** (*Pian*) | `arfian.23001@mhs.unesa.ac.id` | `password` | Akun aktif dengan riwayat asesmen multi-hari, rekap tren kafein, hasil prediksi ML, dan analisis Gemini lengkap. |
-| 🧪 **Penguji / Verifier** | `verifier@caffisense.test` | `password` | Akun pengujian verifikasi untuk simulasi input diagnosis segar dari awal (*fresh session*). |
+| 🧑💻 **Demo User Utama** (*Pian*) | `arfian.23001@mhs.unesa.ac.id` | `password123` | Akun aktif dengan riwayat asesmen multi-hari, rekap tren kafein, hasil prediksi ML, dan analisis Gemini lengkap. |
+| 🧪 **Penguji / Verifier** | `verifier@caffisense.test` | `password123` | Akun pengujian verifikasi untuk simulasi input diagnosis segar dari awal (*fresh session*). |
 | 👤 **Pengguna Baru** (*Registrasi*) | *(Daftar Mandiri)* | *(Min. 6 Karakter)* | Registrasi instan via halaman `/register` dengan enkripsi bcrypt dan penerbitan Sanctum Token 24 jam. |
 
-> 💡 **Catatan Sesi**: Sistem menggunakan sesi token Sanctum dengan masa aktif 24 jam. Pengguna dapat memperbarui data profil, mengunggah foto avatar, dan mengunduh rekap riwayat di tab Profil.
+> 💡 **Tips Pengujian Instan**:  
+> Anda dapat langsung mengunjungi **[https://caffisense.my.id/login](https://caffisense.my.id/login)** dan masuk menggunakan:  
+> * **Email**: `arfian.23001@mhs.unesa.ac.id`  
+> * **Password**: `password123`
 
 ---
 
@@ -75,18 +81,19 @@ Untuk mempermudah proses evaluasi dan peninjauan fungsionalitas sistem, disediak
 
 ### 1. Tautan Lingkungan Web Test (Testing Environments)
 
-Layanan CaffiSense dapat diuji secara langsung melalui peramban web (*browser*) dengan tautan berikut:
+Layanan CaffiSense dapat diuji secara langsung melalui peramban web (*browser*) baik di server publik maupun lingkungan lokal:
 
-| Komponen Layanan | Tautan Akses Web Test | Port Default | Keterangan & Tujuan Pengujian |
+| Komponen Layanan | Tautan Akses Web Test | Port / Protokol | Keterangan & Tujuan Pengujian |
 | :--- | :--- | :--- | :--- |
-| 💻 **Frontend Web App** | [`http://localhost:5173`](http://localhost:5173) | `5173` | Antarmuka pengguna utama (Diagnosis 7 langkah, visualisasi kurva eliminasi, 11 organ 3D BioDigital Human, dan unduh laporan). |
+| 🌐 **Live Web Application (Publik)** | [**https://caffisense.my.id/**](https://caffisense.my.id/) | `443` (HTTPS) | **Server Produksi / Publik Resmi**: Akses instan online tanpa perlu instalasi lokal. Lengkap dengan seluruh fitur diagnosis, AI, dan visualisasi 3D. |
+| 💻 **Frontend Web App (Lokal)** | [`http://localhost:5173`](http://localhost:5173) | `5173` | Antarmuka pengguna lokal (Diagnosis 7 langkah, visualisasi kurva eliminasi, 11 organ 3D BioDigital Human, dan unduh laporan). |
 | ⚡ **FastAPI Interactive Web Test** | [`http://localhost:8002/docs`](http://localhost:8002/docs) *(Docker)* <br> [`http://localhost:8001/docs`](http://localhost:8001/docs) *(Lokal)* | `8002` / `8001` | **Interactive Swagger UI GUI**: Pengujian langsung inferensi ML Random Forest (`/predict`), ekstraksi NLP keluhan (`/nlp/extract`), dan status model (`/health`). |
 | 🔌 **Backend REST API** | [`http://localhost:8008/api`](http://localhost:8008/api) *(Docker)* <br> [`http://localhost:8000/api`](http://localhost:8000/api) *(Lokal)* | `8008` / `8000` | Endpoint RESTful API untuk otentikasi Sanctum, submit asesmen, sinkronisasi Gemini AI, dan log tantangan 7 hari. |
 | 🩺 **Backend Health Check** | [`http://localhost:8008/api/health`](http://localhost:8008/api/health) | `8008` | Uji ketersediaan server backend Laravel (mengembalikan respons `{"status":"ok"}`). |
 | 🗄️ **Database Manager (PhpMyAdmin)** | [`http://localhost:8089`](http://localhost:8089) | `8089` | Web GUI pengelolaan database MariaDB (User: `root`, Password: `root`). |
 
-> 🌐 **Catatan Pengujian Online / Deployment Server**:  
-> Jika dideploy pada server VPS / CasaOS / Portainer / Tailscale, ganti `localhost` dengan IP server atau domain publik Anda (contoh: `http://<IP-SERVER>:5173` atau domain yang terhubung).
+> 🌐 **Domain Publik & Deployment**:  
+> Web utama telah terhubung secara publik di **[https://caffisense.my.id](https://caffisense.my.id)** dengan sertifikat SSL/TLS HTTPS aktif.
 
 ---
 
@@ -148,7 +155,7 @@ Seluruh skenario pengujian fungsionalitas web pada CaffiSense telah diuji dengan
 
 | Test ID | Modul / Fitur | Skenario Pengujian Web | Data Masukan (Input) | Hasil yang Diharapkan | Hasil Aktual | Status |
 | :---: | :--- | :--- | :--- | :--- | :--- | :---: |
-| **TC-01** | Autentikasi Pengguna | Login dengan kredensial akun demo | Email: `arfian.23001@mhs.unesa.ac.id`, Pass: `password` | Token Sanctum terbit, dialihkan ke dashboard diagnosis | Berhasil login, token tersimpan di localStorage | 🟢 PASS |
+| **TC-01** | Autentikasi Pengguna | Login dengan kredensial akun demo | Email: `arfian.23001@mhs.unesa.ac.id`, Pass: `password123` | Token Sanctum terbit, dialihkan ke dashboard diagnosis | Berhasil login, token tersimpan di localStorage | 🟢 PASS |
 | **TC-02** | Registrasi Akun Baru | Mendaftarkan akun baru dengan password valid | Nama, Email unik, Password 6+ karakter, Konfirmasi cocok | Akun tersimpan di DB, auto-login ke dashboard | Akun tersimpan, session 24 jam aktif | 🟢 PASS |
 | **TC-03** | 7-Step Wizard Form | Mengisi data langkah 1 s.d. 7 berurutan | Kopi, status lambung, olahraga, rokok, tidur, hidrasi, keluhan | Validasi per langkah reaktif, tombol navigasi responsif | Seluruh langkah tervalidasi dan transisi mulus | 🟢 PASS |
 | **TC-04** | Live Decay Chart | Simulasi peluruhan kafein saat form diubah | Ubah jumlah cangkir: 2, jam: 15:00 | Kurva Recharts bereaksi seketika terhadap waktu paruh 5 jam | Kurva peluruhan bergerak *real-time* dengan garis 50mg & 400mg | 🟢 PASS |
