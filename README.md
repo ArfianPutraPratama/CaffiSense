@@ -279,12 +279,12 @@ sequenceDiagram
     participant AI as Generative AI (Google Gemini)
     participant DB as Basis Data (MariaDB)
 
-    Note over User,Web: FASE 1: Pengisian Parameter Diagnosis & Visualisasi Real-Time
+    Note over User,Web: FASE 1: Pengisian Parameter Diagnosis dan Visualisasi Real-Time
     User->>Web: Mengubah input form (Cangkir, Jam, Makanan, Olahraga)
-    Web->>Web: Kalkulasi Live Curve C(t) = C0 * (0.5)^(t/5)
-    Web-->>User: Render Kurva Peluruhan Kafein & Peringatan Ambang 50mg/400mg
+    Web->>Web: Kalkulasi Live Curve Waktu Paruh 5 Jam
+    Web-->>User: Render Kurva Peluruhan Kafein dan Peringatan Ambang 50mg / 400mg
 
-    Note over User,DB: FASE 2: Submit Asesmen & Pemrosesan Dual AI Engine
+    Note over User,DB: FASE 2: Submit Asesmen dan Pemrosesan Dual AI Engine
     User->>Web: Klik "Simpan & Lihat Hasil" (Step 7)
     Web->>BE: POST /api/assessment (Payload Fisiologis + Bearer Token)
     
@@ -311,13 +311,13 @@ sequenceDiagram
     BE-->>Web: HTTP 201: Data Assessment Lengkap + AI Analysis
     Web-->>User: Tampilkan Dashboard Insights (Kategori Risiko & Solusi)
 
-    Note over User,Web: FASE 3: Eksplorasi Anatomi 11 Organ & Ekspor Laporan
+    Note over User,Web: FASE 3: Eksplorasi Anatomi 11 Organ dan Ekspor Laporan
     User->>Web: Memilih salah satu organ tubuh (misal: Jantung / Lambung)
     Web->>Web: Evaluasi OrganImpactMatrix (Hitung beban fisiologis 0-100%)
-    Web->>Web: Render BioDigital Human™ 3D WebGL Canvas
-    Web-->>User: Tampilkan visualisasi 3D, efek langsung, risiko jangka panjang, & tindakan pemulihan
+    Web->>Web: Render BioDigital Human 3D WebGL Canvas
+    Web-->>User: Tampilkan visualisasi 3D, efek langsung, risiko jangka panjang, dan tindakan pemulihan
     User->>Web: Klik "Download Laporan PDF"
-    Web->>Web: Generate Dokumen Resmi via jsPDF & autoTable
+    Web->>Web: Generate Dokumen Resmi via jsPDF dan autoTable
     Web-->>User: Berkas PDF CaffiSense Medical Report terunduh
 ```
 
@@ -329,39 +329,39 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A([Mulai: Pengguna Buka Halaman Diagnosis]) --> B[Step 1: Input Kopi, Ukuran, Tanggal & Jam]
-    B --> C[Step 2: Pilih Status Makanan & Jam Terakhir]
-    C --> D[Step 3: Pilih Waktu & Durasi Olahraga]
-    D --> E[Step 4: Tentukan Intensitas Rokok / Nikotin]
-    E --> F[Step 5: Tentukan Durasi Tidur Harian]
-    F --> G{Konfirmasi Tidur 1x/Hari?}
-    G -- Simpan --> H[Step 6: Input Asupan Hidrasi Air Putih]
+    A(["Mulai: Pengguna Buka Halaman Diagnosis"]) --> B["Step 1: Input Kopi, Ukuran, Tanggal dan Jam"]
+    B --> C["Step 2: Pilih Status Makanan dan Jam Terakhir"]
+    C --> D["Step 3: Pilih Waktu dan Durasi Olahraga"]
+    D --> E["Step 4: Tentukan Intensitas Rokok / Nikotin"]
+    E --> F["Step 5: Tentukan Durasi Tidur Harian"]
+    F --> G{"Konfirmasi Tidur 1x/Hari?"}
+    G -- Simpan --> H["Step 6: Input Asupan Hidrasi Air Putih"]
     G -- Lewati --> H
-    H --> I[Step 7: Pilih Gejala / Tulis Keluhan Bebas]
+    H --> I["Step 7: Pilih Gejala / Tulis Keluhan Bebas"]
     
-    I --> J[Kirim Request: POST /api/assessment]
-    J --> K{Ada Keluhan Bebas?}
-    K -- Ya --> L[FastAPI NLP: Ekstraksi Fitur Gejala Biner]
-    K -- Tidak --> M[Gunakan Fitur Gejala Default 0]
-    L --> N[Normalisasi 12 Parameter Fitur Klinis]
+    I --> J["Kirim Request: POST /api/assessment"]
+    J --> K{"Ada Keluhan Bebas?"}
+    K -- Ya --> L["FastAPI NLP: Ekstraksi Fitur Gejala Biner"]
+    K -- Tidak --> M["Gunakan Fitur Gejala Default 0"]
+    L --> N["Normalisasi 12 Parameter Fitur Klinis"]
     M --> N
     
-    N --> O{Panggil ML Service /predict}
-    O -- Sukses --> P[Dapatkan sleep_impacted & probability]
-    O -- Timeout / Gagal --> Q[Jalankan Rule-Based Fallback Klinis]
+    N --> O{"Panggil ML Service /predict"}
+    O -- Sukses --> P["Dapatkan sleep_impacted dan probability"]
+    O -- Timeout / Gagal --> Q["Jalankan Rule-Based Fallback Klinis"]
     Q --> P
     
-    P --> R[Simpan Data Awal ke Tabel assessments]
-    R --> S{Kunci Gemini API Valid?}
-    S -- Ya --> T[Google Gemini: Sintesis Rekomendasi 4 Pilar]
-    T --> U[Update Kolom ai_analysis di Database]
-    S -- Tidak --> V[Gunakan Ulasan Template Klinis]
+    P --> R["Simpan Data Awal ke Tabel assessments"]
+    R --> S{"Kunci Gemini API Valid?"}
+    S -- Ya --> T["Google Gemini: Sintesis Rekomendasi 4 Pilar"]
+    T --> U["Update Kolom ai_analysis di Database"]
+    S -- Tidak --> V["Gunakan Ulasan Template Klinis"]
     V --> U
     
-    U --> W[Kirim Respons JSON ke Frontend]
-    W --> X[Simpan Cache Lokal & Update Reactive History]
-    X --> Y[Navigasi ke Halaman Insights & Rekomendasi]
-    Y --> Z([Selesai: Visualisasi Lengkap Ditampilkan])
+    U --> W["Kirim Respons JSON ke Frontend"]
+    W --> X["Simpan Cache Lokal dan Update Reactive History"]
+    X --> Y["Navigasi ke Halaman Insights dan Rekomendasi"]
+    Y --> Z(["Selesai: Visualisasi Lengkap Ditampilkan"])
 ```
 
 ---
@@ -370,29 +370,35 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A([Mulai: Load Data Asesmen Terpilih]) --> B[Ambil Parameter: Kafein, Jam, Makan, Rokok, Air, Tidur, Gejala]
+    A(["Mulai: Load Data Asesmen Terpilih"]) --> B["Ambil Parameter: Kafein, Jam, Makan, Rokok, Air, Tidur, Gejala"]
     
-    B --> C[Hitung Base Load Kafein = min 100, (mg / 400) * Factor]
+    B --> C["Hitung Base Load Kafein: min 100 persen, rasio dosis dan faktor organ"]
     
-    C --> D[Evaluasi Otak: Tambah beban jika jam >= 16:00 / tidur <= 5 jam / gejala pusing]
-    C --> E[Evaluasi Lambung: Tambah beban jika belum makan (+30%) & rokok (+12%)]
-    C --> F[Evaluasi Hati: Induksi CYP1A2 akibat nikotin rokok (+20%)]
-    C --> G[Evaluasi Ginjal: Beban filtrasi jika hidrasi < 1000 ml vs proteksi >= 2000 ml]
-    C --> H[Evaluasi Jantung: Stimulasi adrenalin jika perut kosong / rokok / nokturia]
-    C --> I[Evaluasi Organ Lain: Usus, Otot, Kandung Kemih, Paru, Mata, Adrenal]
+    C --> D["Evaluasi Otak: Beban meningkat jika jam kopi sore/malam atau tidur kurang"]
+    C --> E["Evaluasi Lambung: Beban meningkat jika kondisi perut kosong atau merokok"]
+    C --> F["Evaluasi Hati: Induksi enzim CYP1A2 akibat nikotin rokok"]
+    C --> G["Evaluasi Ginjal: Filtrasi berat jika hidrasi kurang dari 1000 ml"]
+    C --> H["Evaluasi Jantung: Stimulasi adrenalin saat perut kosong atau nikotin"]
+    C --> I["Evaluasi Organ Lain: Usus, Otot, Kandung Kemih, Paru, Mata, Adrenal"]
     
-    D & E & F & G & H & I --> J[Tentukan Status Per Organ: Safe < 40%, Warning 40-69%, Danger >= 70%]
+    D --> J["Tentukan Status Per Organ: Safe, Warning, atau Danger"]
+    E --> J
+    F --> J
+    G --> J
+    H --> J
+    I --> J
     
-    J --> K[Render 2D Anatomy Map dengan Pin Indikator Berwarna]
-    K --> L{Pengguna Memilih Organ?}
+    J --> K["Render 2D Anatomy Map dengan Pin Indikator Berwarna"]
+    K --> L{"Pengguna Memilih Organ?"}
     L -- Tidak --> K
-    L -- Ya --> M[Buka Drawer Detail Klinis Organ]
-    M --> N{Pilih Mode Tampilan?}
-    N -- Tampilan 2D --> O[Tampilkan Diagram Medis Anatomi 2D Resolusi Tinggi]
-    N -- Tampilan 3D --> P[Inisialisasi BioDigital Human™ WebGL Canvas]
-    P --> Q[Render Interaktif Model 3D dengan Kontrol 360 Derajat]
-    O & Q --> R[Tampilkan Ulasan Efek Langsung, Risiko Kronis, & Solusi Medis]
-    R --> S([Selesai: Pengguna Memahami Dampak Organik])
+    L -- Ya --> M["Buka Drawer Detail Klinis Organ"]
+    M --> N{"Pilih Mode Tampilan?"}
+    N -- Mode 2D --> O["Tampilkan Diagram Medis Anatomi 2D Resolusi Tinggi"]
+    N -- Mode 3D --> P["Inisialisasi BioDigital Human 3D WebGL Canvas"]
+    P --> Q["Render Interaktif Model 3D dengan Kontrol 360 Derajat"]
+    O --> R["Tampilkan Efek Langsung, Risiko Kronis, dan Solusi Medis"]
+    Q --> R
+    R --> S(["Selesai: Pengguna Memahami Dampak Fisiologis"])
 ```
 
 ---
@@ -405,25 +411,25 @@ Diagram Konteks mendefinisikan batasan sistem informasi CaffiSense dengan 4 enti
 
 ```mermaid
 flowchart LR
-    subgraph External_Entities[Entitas Luar]
-        U[👤 Pengguna / Pasien]
-        ML[🧠 ML Service FastAPI]
-        AI[✨ Google Gemini AI]
-        USDA[📚 USDA FoodData Central]
+    subgraph External_Entities["Entitas Luar"]
+        U["👤 Pengguna / Pasien"]
+        ML["🧠 ML Service FastAPI"]
+        AI["✨ Google Gemini AI"]
+        USDA["📚 USDA FoodData Central"]
     end
 
-    SYS((Sistem Kesehatan CaffiSense))
+    SYS(("Sistem Kesehatan CaffiSense"))
 
-    U -- Data Akun, Input 7-Step Diagnosis, Log Tantangan 7 Hari --> SYS
-    SYS -- Kurva Waktu Paruh, Dashboard Insights, 3D Organ, Laporan PDF --> U
+    U -->|"Data Akun, Input 7-Step Diagnosis, Log Tantangan 7 Hari"| SYS
+    SYS -->|"Kurva Waktu Paruh, Dashboard Insights, 3D Organ, Laporan PDF"| U
 
-    SYS -- 12 Fitur Fisiologis & Keluhan Teks NLP --> ML
-    ML -- Hasil Prediksi Gangguan Tidur & Probabilitas Nilai --> SYS
+    SYS -->|"12 Fitur Fisiologis dan Keluhan Teks NLP"| ML
+    ML -->|"Hasil Prediksi Gangguan Tidur dan Probabilitas Nilai"| SYS
 
-    SYS -- Formatted Clinical Prompt & Variabel Fisiologis --> AI
-    AI -- Ulasan Naratif 4 Pilar & Rekomendasi Pemulihan --> SYS
+    SYS -->|"Formatted Clinical Prompt dan Variabel Fisiologis"| AI
+    AI -->|"Ulasan Naratif 4 Pilar dan Rekomendasi Pemulihan"| SYS
 
-    USDA -- Standar Takaran & Kandungan Kafein per Sajian --> SYS
+    USDA -->|"Standar Takaran dan Kandungan Kafein per Sajian"| SYS
 ```
 
 ---
@@ -432,59 +438,59 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    U[👤 Pengguna]
-    ML[🧠 FastAPI ML Engine]
-    AI[✨ Google Gemini AI]
+    U["👤 Pengguna"]
+    ML["🧠 FastAPI ML Engine"]
+    AI["✨ Google Gemini AI"]
 
-    D1[(D1: users)]
-    D2[(D2: coffee_references)]
-    D3[(D3: assessments)]
-    D4[(D4: challenge_logs)]
+    D1[("D1: users")]
+    D2[("D2: coffee_references")]
+    D3[("D3: assessments")]
+    D4[("D4: challenge_logs")]
 
-    subgraph Process_Decomposition[Proses Level 1]
-        P1(1.0 Autentikasi & Manajemen Sesi)
-        P2(2.0 Standardisasi Takaran Kafein)
-        P3(3.0 Diagnosis 7-Langkah & Kinetika Peluruhan)
-        P4(4.0 Inferensi ML & Ekstraksi NLP)
-        P5(5.0 Rekomendasi Klinis Generatif AI)
-        P6(6.0 Kalkulasi Beban 11 Organ & 3D WebGL)
-        P7(7.0 Pelacak Siklus 7 Hari & Ekspor PDF)
+    subgraph Process_Decomposition["Proses Level 1"]
+        P1["1.0 Autentikasi dan Manajemen Sesi"]
+        P2["2.0 Standardisasi Takaran Kafein"]
+        P3["3.0 Diagnosis 7-Langkah dan Kinetika Peluruhan"]
+        P4["4.0 Inferensi ML dan Ekstraksi NLP"]
+        P5["5.0 Rekomendasi Klinis Generatif AI"]
+        P6["6.0 Kalkulasi Beban 11 Organ dan 3D WebGL"]
+        P7["7.0 Pelacak Siklus 7 Hari dan Ekspor PDF"]
     end
 
     %% Autentikasi
-    U -->|Email & Password| P1
-    P1 <-->|Verifikasi Bcrypt & Token Sanctum| D1
-    P1 -->|Token & Profil Pengguna| U
+    U -->|"Email dan Password"| P1
+    P1 <-->|"Verifikasi Bcrypt dan Token Sanctum"| D1
+    P1 -->|"Token dan Profil Pengguna"| U
 
     %% Standar Kopi
-    D2 -->|Kadar mg per sajian| P2
-    P2 -->|Nilai Dasar Kafein Kopi Seduh| P3
+    D2 -->|"Kadar mg per sajian"| P2
+    P2 -->|"Nilai Dasar Kafein Kopi Seduh"| P3
 
     %% Diagnosis
-    U -->|Input 7 Parameter Fisiologis| P3
-    P3 -->|Payload Fitur Klinis| P4
+    U -->|"Input 7 Parameter Fisiologis"| P3
+    P3 -->|"Payload Fitur Klinis"| P4
     
-    %% ML & NLP
-    P4 <-->|Inferensi Klasifikasi Biner| ML
-    P4 -->|ml_prediction & ml_probability| P3
+    %% ML dan NLP
+    P4 <-->|"Inferensi Klasifikasi Biner"| ML
+    P4 -->|"ml_prediction dan ml_probability"| P3
 
     %% Simpan Data Asesmen
-    P3 -->|Simpan Record Baru| D3
+    P3 -->|"Simpan Record Baru"| D3
     
     %% Gemini AI
-    D3 -->|Ambil Data Asesmen Terkini| P5
-    P5 <-->|Prompting Klinis Farmakologi| AI
-    P5 -->|Simpan ai_analysis Markdown| D3
+    D3 -->|"Ambil Data Asesmen Terkini"| P5
+    P5 <-->|"Prompting Klinis Farmakologi"| AI
+    P5 -->|"Simpan ai_analysis Markdown"| D3
 
     %% Evaluasi Organ
-    D3 -->|Parameter Asesmen| P6
-    P6 -->|Visualisasi 11 Organ & 3D WebGL| U
+    D3 -->|"Parameter Asesmen"| P6
+    P6 -->|"Visualisasi 11 Organ dan 3D WebGL"| U
 
-    %% Tantangan 7 Hari & Ekspor
-    U -->|Log Harian Siklus| P7
-    P7 <-->|Simpan & Ambil Progres| D4
-    D3 -->|Rekap Histori Asesmen| P7
-    P7 -->|File PDF Laporan Medis & CSV| U
+    %% Tantangan 7 Hari dan Ekspor
+    U -->|"Log Harian Siklus"| P7
+    P7 <-->|"Simpan dan Ambil Progres"| D4
+    D3 -->|"Rekap Histori Asesmen"| P7
+    P7 -->|"File PDF Laporan Medis dan CSV"| U
 ```
 
 ---
